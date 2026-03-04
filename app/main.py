@@ -2,10 +2,12 @@ import logging
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -13,7 +15,7 @@ from app.api.routes import admin, auth, leads
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.db.seed import seed_admin, seed_attorney
-from app.db.session import async_session_factory
+from app.db.session import async_session_factory, get_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -64,7 +66,7 @@ app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -90,5 +92,12 @@ app.include_router(admin.router, prefix="/api")
 
 
 @app.get("/health")
-async def health():
-    return {"status": "ok"}
+async def health(db: AsyncSession = Depends(get_db)):
+    try:
+        await db.execute(text("SELECT 1"))
+        return {"status": "ok", "database": "connected"}
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "database": "disconnected"},
+        )
