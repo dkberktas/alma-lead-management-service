@@ -26,6 +26,7 @@ node_modules/
 # IDE
 .vscode/
 .idea/
+.cursor/
 
 # Testing / Coverage
 .pytest_cache/

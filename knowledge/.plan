@@ -1,0 +1,32 @@
+TODOs
+- add guardrails and setup
+- spec boilterplate
+- local DB setup w. Docker
+- add smoke test 
+- introduce README
+- add postman folder
+- add object store and its adapter
+- add file managerment interface and its adapter
+- simple web UI 
+- move file upload to client to blobstore directly (add upload link API endpoint)
+- remove local file upload support
+- add attorney resume file access 
+- add chanel notion and add google
+- add prod/staging db setup/migration
+- rate limit lead submission - IP based, email based, etc
+- email all attorneys re: new lead submission
+
+Next
+- sec review
+
+OOS
+- move file upload from client to S3, skip lead service
+- optional lead fields
+- attorney to claim a lead (already captured part of auidit, maybe make it explicit)
+- move emailing logic to a queue/or trigger.dev
+- thin fe for hosting lead form
+- S3 cost redcution for local development, look into LocalStack
+- Add more outreach channels (slack, text, whatapp etc)
+- multi-tenant (add org level)
+
+
