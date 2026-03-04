@@ -21,6 +21,13 @@ class LeadCreateForm(BaseModel):
         return v
 
 
+class ReachedOutByResponse(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+
+    model_config = {"from_attributes": True}
+
+
 class LeadResponse(BaseModel):
     id: uuid.UUID
     first_name: str
@@ -29,6 +36,8 @@ class LeadResponse(BaseModel):
     state: LeadState
     created_at: datetime
     updated_at: datetime
+    reached_out_at: datetime | None = None
+    reached_out_by: ReachedOutByResponse | None = None
 
     model_config = {"from_attributes": True}
 
@@ -37,6 +46,13 @@ class LeadResponse(BaseModel):
     def resume_url(self) -> str:
         """Auth-protected endpoint that returns a short-lived download URL."""
         return f"/api/leads/{self.id}/resume-url"
+
+
+class LeadListResponse(BaseModel):
+    items: list[LeadResponse]
+    total: int
+    limit: int
+    offset: int
 
 
 class LeadStateUpdate(BaseModel):

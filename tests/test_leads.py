@@ -30,6 +30,8 @@ async def test_create_lead(client: AsyncClient):
     assert data["last_name"] == "Doe"
     assert data["email"] == "jane@example.com"
     assert data["state"] == "PENDING"
+    assert data["reached_out_at"] is None
+    assert data["reached_out_by"] is None
     assert "resume_path" not in data
     assert data["resume_url"] == f"/api/leads/{data['id']}/resume-url"
 
@@ -284,7 +286,11 @@ async def test_update_lead_state(client: AsyncClient, auth_token: str):
         headers={"Authorization": f"Bearer {auth_token}"},
     )
     assert resp.status_code == 200
-    assert resp.json()["state"] == "REACHED_OUT"
+    data = resp.json()
+    assert data["state"] == "REACHED_OUT"
+    assert data["reached_out_at"] is not None
+    assert data["reached_out_by"] is not None
+    assert data["reached_out_by"]["email"] == "attorney@test.com"
 
 
 @pytest.mark.asyncio

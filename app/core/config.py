@@ -21,7 +21,7 @@ class Settings(BaseSettings):
             )
         return self
 
-    cors_origins: str = "http://localhost:3000,http://localhost:8080"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://localhost:8080"
 
     @property
     def cors_origin_list(self) -> list[str]:

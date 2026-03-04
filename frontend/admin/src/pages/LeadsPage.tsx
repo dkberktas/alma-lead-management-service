@@ -1,6 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "../lib/api";
 
+interface ReachedOutBy {
+  id: string;
+  email: string;
+}
+
 interface Lead {
   id: string;
   first_name: string;
@@ -10,31 +15,55 @@ interface Lead {
   state: "PENDING" | "REACHED_OUT";
   created_at: string;
   updated_at: string;
+  reached_out_at: string | null;
+  reached_out_by: ReachedOutBy | null;
+}
+
+interface LeadListResponse {
+  items: Lead[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 type StateFilter = "ALL" | "PENDING" | "REACHED_OUT";
 
+const PAGE_SIZE = 50;
+
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [data, setData] = useState<LeadListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updating, setUpdating] = useState<string | null>(null);
   const [filter, setFilter] = useState<StateFilter>("ALL");
+  const [page, setPage] = useState(0);
 
   const fetchLeads = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const data = await apiFetch<Lead[]>("/api/leads");
-      setLeads(data);
+      const params = new URLSearchParams();
+      if (filter !== "ALL") params.set("state", filter);
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(page * PAGE_SIZE));
+      const qs = params.toString();
+      const res = await apiFetch<LeadListResponse>(`/api/leads?${qs}`);
+      setData(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load leads");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter, page]);
 
   useEffect(() => {
     fetchLeads();
   }, [fetchLeads]);
+
+  function handleFilterChange(f: StateFilter) {
+    setFilter(f);
+    setPage(0);
+  }
 
   async function markReachedOut(id: string) {
     setUpdating(id);
@@ -43,7 +72,11 @@ export default function LeadsPage() {
         method: "PATCH",
         body: JSON.stringify({ state: "REACHED_OUT" }),
       });
-      setLeads((prev) => prev.map((l) => (l.id === id ? updated : l)));
+      setData((prev) =>
+        prev
+          ? { ...prev, items: prev.items.map((l) => (l.id === id ? updated : l)) }
+          : prev
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
     } finally {
@@ -61,7 +94,10 @@ export default function LeadsPage() {
     });
   }
 
-  if (loading) {
+  const leads = data?.items ?? [];
+  const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
+
+  if (loading && !data) {
     return (
       <div className="flex items-center justify-center py-20 text-sm text-stone-500">
         Loading leads…
@@ -69,14 +105,13 @@ export default function LeadsPage() {
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-10">
         <p className="text-sm text-red-600">{error}</p>
         <button
           onClick={() => {
             setError("");
-            setLoading(true);
             fetchLeads();
           }}
           className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
@@ -87,23 +122,13 @@ export default function LeadsPage() {
     );
   }
 
-  const filtered = filter === "ALL" ? leads : leads.filter((l) => l.state === filter);
-
-  const counts = {
-    ALL: leads.length,
-    PENDING: leads.filter((l) => l.state === "PENDING").length,
-    REACHED_OUT: leads.filter((l) => l.state === "REACHED_OUT").length,
-  };
-
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h2 className="text-lg font-semibold text-stone-800">Leads</h2>
           <p className="text-sm text-stone-500">
-            {filtered.length} of {leads.length}{" "}
-            {leads.length === 1 ? "lead" : "leads"}
-            {filter !== "ALL" && " shown"}
+            {data ? `${data.total} ${data.total === 1 ? "lead" : "leads"}` : "Loading..."}
           </p>
         </div>
 
@@ -111,7 +136,7 @@ export default function LeadsPage() {
           {(["ALL", "PENDING", "REACHED_OUT"] as const).map((val) => (
             <button
               key={val}
-              onClick={() => setFilter(val)}
+              onClick={() => handleFilterChange(val)}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 filter === val
                   ? "bg-white text-stone-900 shadow-sm"
@@ -119,17 +144,26 @@ export default function LeadsPage() {
               }`}
             >
               {val === "ALL" ? "All" : val === "PENDING" ? "Pending" : "Reached Out"}
-              <span className="ml-1.5 text-stone-400">{counts[val]}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+          <button
+            onClick={() => { setError(""); fetchLeads(); }}
+            className="ml-2 font-medium underline hover:no-underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {leads.length === 0 ? (
         <div className="rounded-lg border border-stone-200 bg-white py-12 text-center text-sm text-stone-500">
-          {leads.length === 0
-            ? "No leads yet."
-            : "No leads match this filter."}
+          {filter === "ALL" ? "No leads yet." : "No leads match this filter."}
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
@@ -148,13 +182,16 @@ export default function LeadsPage() {
                 <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-stone-500">
                   State
                 </th>
+                <th className="px-5 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-stone-500">
+                  Reached Out By
+                </th>
                 <th className="px-5 py-3.5 text-right text-xs font-medium uppercase tracking-wide text-stone-500">
                   Action
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
-              {filtered.map((lead, i) => (
+              {leads.map((lead, i) => (
                 <tr
                   key={lead.id}
                   className={`${i % 2 === 1 ? "bg-stone-50/50" : ""} hover:bg-stone-50`}
@@ -170,6 +207,15 @@ export default function LeadsPage() {
                   </td>
                   <td className="whitespace-nowrap px-5 py-4">
                     <StateBadge state={lead.state} />
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4 text-sm text-stone-500">
+                    {lead.reached_out_by ? (
+                      <span title={lead.reached_out_at ? formatDate(lead.reached_out_at) : undefined}>
+                        {lead.reached_out_by.email}
+                      </span>
+                    ) : (
+                      <span className="text-stone-300">—</span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-5 py-4 text-right">
                     {lead.state === "PENDING" ? (
@@ -190,6 +236,30 @@ export default function LeadsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-xs text-stone-500">
+            Page {page + 1} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>

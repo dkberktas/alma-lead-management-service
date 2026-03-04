@@ -10,7 +10,8 @@ from app.core.dependencies import get_current_user
 from app.core.rate_limit import limiter
 from app.models.user import User
 from app.db.session import get_db
-from app.schemas.lead import AuditLogResponse, LeadCreateForm, LeadResponse, LeadStateUpdate
+from app.models.lead import LeadState
+from app.schemas.lead import AuditLogResponse, LeadCreateForm, LeadListResponse, LeadResponse, LeadStateUpdate
 from app.services import audit_service, auth_service, file_service, lead_service, notification_service
 
 router = APIRouter(prefix="/leads", tags=["leads"])
@@ -69,13 +70,19 @@ async def create_lead(
     return lead
 
 
-@router.get("", response_model=list[LeadResponse])
+@router.get("", response_model=LeadListResponse)
 async def list_leads(
+    state: LeadState | None = None,
+    limit: int = 50,
+    offset: int = 0,
     _user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Internal endpoint — authenticated attorneys view all leads."""
-    return await lead_service.list_leads(db)
+    """Internal endpoint — authenticated attorneys view leads with optional state filter."""
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+    items, total = await lead_service.list_leads(db, state=state, limit=limit, offset=offset)
+    return LeadListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.get("/{lead_id}", response_model=LeadResponse)
@@ -100,7 +107,7 @@ async def update_lead_state(
     lead = await lead_service.get_lead(db, lead_id)
     old_state = lead.state.value
 
-    updated_lead = await lead_service.update_lead_state(db, lead_id, body.state)
+    updated_lead = await lead_service.update_lead_state(db, lead_id, body.state, user=user)
 
     background_tasks.add_task(
         audit_service.record_state_change,
