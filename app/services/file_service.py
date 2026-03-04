@@ -1,20 +1,20 @@
 from fastapi import HTTPException, UploadFile, status
 
 from app.core.config import settings
-from app.services.storage import FileInfo, S3StorageBackend, build_key, create_s3_backend
+from app.services.storage import FileInfo, StorageBackend, build_key, get_storage_backend
 
 ALLOWED_CONTENT_TYPES = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 
-_backend: S3StorageBackend | None = None
+_backend: StorageBackend | None = None
 
 
-def _get_backend() -> S3StorageBackend:
+def _get_backend() -> StorageBackend:
     global _backend
     if _backend is None:
-        _backend = create_s3_backend(settings)
+        _backend = get_storage_backend(settings)
     return _backend
 
 

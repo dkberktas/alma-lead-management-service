@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     email_from: str = "noreply@alma.com"
     attorney_email: str = "attorney@alma.com"
 
+    storage_backend: str = "local"  # "local" or "s3"
+    upload_dir: str = "uploads"
     max_upload_size_mb: int = 10
 
     s3_bucket: str = ""

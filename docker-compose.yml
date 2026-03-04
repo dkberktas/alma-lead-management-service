@@ -24,6 +24,7 @@ services:
     volumes:
       - ./app:/code/app
       - ./uploads:/code/uploads
+      - ~/.aws:/root/.aws:ro
     depends_on:
       db:
         condition: service_healthy
