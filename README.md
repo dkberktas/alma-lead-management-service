@@ -128,7 +128,7 @@ An end-to-end script that creates attorneys, submits leads, and verifies the ful
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/leads` | List all leads |
+| `GET` | `/api/leads` | List all leads (supports `state`, `limit`, `offset` query params) |
 | `GET` | `/api/leads/{id}` | Get a single lead |
 | `PATCH` | `/api/leads/{id}` | Update lead state (`PENDING` → `REACHED_OUT`) |
 | `GET` | `/api/leads/{id}/resume-url` | Get a short-lived download URL for the lead's resume |
@@ -140,8 +140,12 @@ An end-to-end script that creates attorneys, submits leads, and verifies the ful
 | `POST` | `/api/admin/attorneys` | Create a new attorney account |
 | `GET` | `/api/admin/users` | List all users (admins + attorneys) |
 | `GET` | `/api/admin/users/{id}` | Get a single user |
-| `DELETE` | `/api/admin/users/{id}` | Delete a user (cannot delete self) |
+| `PATCH` | `/api/admin/users/{id}/deactivate` | Soft-deactivate a user (disables login) |
+| `PATCH` | `/api/admin/users/{id}/reactivate` | Re-enable a deactivated user |
+| `DELETE` | `/api/admin/users/{id}` | Permanently delete a user (cannot delete self) |
 | `GET` | `/api/admin/files` | List all uploaded files (from S3) |
+| `GET` | `/api/admin/audit-logs` | List audit trail (supports `entity_type`, `action`, `limit`, `offset`) |
+| `GET` | `/api/leads/{id}/audit-log` | Get audit log for a specific lead |
 
 ## API Usage Examples
 
@@ -220,18 +224,20 @@ app/
 │   ├── seed.py        # Admin user bootstrap on startup
 │   └── session.py     # Async SQLAlchemy engine + session
 ├── models/            # SQLAlchemy ORM models
+│   ├── audit_log.py   # AuditLog (entity tracking, state changes)
 │   ├── lead.py        # Lead (id, name, email, resume, state)
 │   └── user.py        # User (admin/attorney with role enum)
 ├── schemas/           # Pydantic request/response models
 │   ├── auth.py
 │   └── lead.py
 ├── services/          # Business logic layer
+│   ├── audit_service.py   # Audit trail recording and querying
 │   ├── auth_service.py
 │   ├── channels/      # Pluggable notification channels (Resend, SMTP, log)
 │   ├── file_service.py
 │   ├── lead_service.py
 │   ├── notification_service.py
-│   └── storage.py     # Pluggable storage backend (S3, local)
+│   └── storage.py     # S3 storage backend
 └── main.py            # App entry point
 tests/                 # pytest test suite
 scripts/               # Utility scripts (smoke test)
@@ -398,5 +404,7 @@ See `knowledge/` for architecture decision records and open questions:
 - [`knowledge/adr-001-database-strategy.md`](knowledge/adr-001-database-strategy.md) — PostgreSQL via Docker
 - [`knowledge/adr-002-admin-role-rbac.md`](knowledge/adr-002-admin-role-rbac.md) — Admin role and RBAC
 - [`knowledge/adr-003-pluggable-storage-backend.md`](knowledge/adr-003-pluggable-storage-backend.md) — S3 storage backend
+- [`knowledge/adr-004-audit-trail.md`](knowledge/adr-004-audit-trail.md) — Audit trail design
+- [`knowledge/adr-004-remove-rls-app-layer-auth.md`](knowledge/adr-004-remove-rls-app-layer-auth.md) — App-layer auth over RLS
 - [`knowledge/open-questions.md`](knowledge/open-questions.md) — Ambiguities and working assumptions
 - [`knowledge/assignment.md`](knowledge/assignment.md) — Original requirements

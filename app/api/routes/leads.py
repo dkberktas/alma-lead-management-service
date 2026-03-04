@@ -11,7 +11,7 @@ from app.core.rate_limit import limiter
 from app.models.user import User
 from app.db.session import admin_session_factory, get_db
 from app.models.lead import LeadState
-from app.schemas.lead import AuditLogResponse, LeadCreateForm, LeadListResponse, LeadResponse, LeadStateUpdate
+from app.schemas.lead import AuditLogResponse, LeadCreateForm, LeadListResponse, LeadResponse, LeadStateUpdate, ResumeUrlResponse
 from app.services import audit_service, auth_service, file_service, lead_service, notification_service
 
 router = APIRouter(prefix="/leads", tags=["leads"])
@@ -135,7 +135,7 @@ async def update_lead_state(
     return updated_lead
 
 
-@router.get("/{lead_id}/resume-url")
+@router.get("/{lead_id}/resume-url", response_model=ResumeUrlResponse)
 async def get_resume_url(
     lead_id: uuid.UUID,
     _user: User = Depends(get_current_user),

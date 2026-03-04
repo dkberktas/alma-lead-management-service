@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Alma Lead Management",
-    "description": "API collection for the Alma Lead Management Service.\n\n## Setup\n1. Register an admin user (first registered user becomes admin)\n2. Login to get a JWT token — it's auto-saved to the `token` variable\n3. Use authenticated endpoints (leads list, admin, etc.)\n\n## Storage Backend Testing\nThe app supports `local` (disk) and `s3` storage backends. Use the **Storage** folder to verify uploads work with each backend. Set `STORAGE_BACKEND=s3` and `S3_BUCKET=alma-resumes-dev` in your `.env` to test S3.\n\n## Variables\n- `base_url` — defaults to `http://localhost:8000`\n- `token` — set automatically after login/register",
+    "description": "API collection for the Alma Lead Management Service.\n\n## Setup\n1. Start the app (admin is seeded via ADMIN_EMAIL / ADMIN_PASSWORD env vars)\n2. Login to get a JWT token — it's auto-saved to the `token` variable\n3. Use authenticated endpoints (leads list, admin, etc.)\n\n## Storage Backend\nResume uploads are stored in S3. Set `S3_BUCKET` in your `.env`.\n\n## Variables\n- `base_url` — defaults to `http://localhost:8000`\n- `token` — set automatically after login",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -54,46 +54,6 @@
     {
       "name": "Auth",
       "item": [
-        {
-          "name": "Register",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.response.code === 201) {",
-                  "    var json = pm.response.json();",
-                  "    pm.collectionVariables.set('token', json.access_token);",
-                  "    pm.test('Token saved to collection variable', function () {",
-                  "        pm.expect(json.access_token).to.be.a('string');",
-                  "    });",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@alma.com\",\n  \"password\": \"change-me-in-production\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/auth/register",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "register"]
-            },
-            "description": "Register a new internal user. The first registered user is automatically assigned the ADMIN role."
-          },
-          "response": []
-        },
         {
           "name": "Login",
           "event": [
@@ -331,6 +291,30 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Get Lead Audit Log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/leads/{{lead_id}}/audit-log",
+              "host": ["{{base_url}}"],
+              "path": ["api", "leads", "{{lead_id}}", "audit-log"]
+            },
+            "description": "Admin-only: view the audit trail for a specific lead (state changes, creation, etc.).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -436,6 +420,54 @@
           "response": []
         },
         {
+          "name": "Deactivate User",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users/{{user_id}}/deactivate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users", "{{user_id}}", "deactivate"]
+            },
+            "description": "Admin-only: soft-delete a user. The user can no longer log in but the account is preserved.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reactivate User",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users/{{user_id}}/reactivate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users", "{{user_id}}", "reactivate"]
+            },
+            "description": "Admin-only: re-enable a previously deactivated user account.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Delete User",
           "request": {
             "method": "DELETE",
@@ -445,7 +477,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "admin", "users", "{{user_id}}"]
             },
-            "description": "Admin-only: delete a user by UUID. Admins cannot delete themselves.",
+            "description": "Admin-only: permanently delete a user by UUID. Admins cannot delete themselves. Prefer deactivate for soft delete.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -511,77 +543,58 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "List Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/audit-logs?limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "audit-logs"],
+              "query": [
+                {
+                  "key": "entity_type",
+                  "value": "lead",
+                  "description": "Filter by entity type (lead, user)",
+                  "disabled": true
+                },
+                {
+                  "key": "action",
+                  "value": "lead_created",
+                  "description": "Filter by action",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Admin-only: view the full audit trail with optional filters for entity_type and action.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
     {
       "name": "Storage",
       "item": [
-        {
-          "name": "Create Lead — Verify Local Storage",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 201', function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
-                  "",
-                  "if (pm.response.code === 201) {",
-                  "    var json = pm.response.json();",
-                  "    pm.test('Resume URL points to auth-protected endpoint', function () {",
-                  "        pm.expect(json.resume_url).to.be.a('string');",
-                  "        pm.expect(json.resume_url).to.include('/api/leads/');",
-                  "        pm.expect(json.resume_url).to.include('/resume-url');",
-                  "    });",
-                  "    pm.test('Lead has PENDING state', function () {",
-                  "        pm.expect(json.state).to.eql('PENDING');",
-                  "    });",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "first_name",
-                  "value": "Local",
-                  "type": "text"
-                },
-                {
-                  "key": "last_name",
-                  "value": "Storage",
-                  "type": "text"
-                },
-                {
-                  "key": "email",
-                  "value": "local-test@example.com",
-                  "type": "text"
-                },
-                {
-                  "key": "resume",
-                  "type": "file",
-                  "src": "",
-                  "description": "Select a PDF or DOCX file"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/api/leads",
-              "host": ["{{base_url}}"],
-              "path": ["api", "leads"]
-            },
-            "description": "Submit a lead and verify the response includes an auth-protected `resume_url` (STORAGE_BACKEND=local). The raw storage path is never exposed."
-          },
-          "response": []
-        },
         {
           "name": "Create Lead — Verify S3 Storage",
           "event": [
@@ -646,7 +659,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "leads"]
             },
-            "description": "Submit a lead and verify the response includes an auth-protected `resume_url` (STORAGE_BACKEND=s3). The raw S3 key is never exposed. Make sure the server is running with STORAGE_BACKEND=s3 and S3_BUCKET set."
+            "description": "Submit a lead and verify the response includes an auth-protected `resume_url`. The raw S3 key is never exposed. Make sure S3_BUCKET is set in your .env."
           },
           "response": []
         },
