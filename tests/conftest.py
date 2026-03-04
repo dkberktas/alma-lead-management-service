@@ -3,12 +3,13 @@ from datetime import datetime, timezone
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.main import app
 from app.models.base import Base
-from app.services import file_service, notification_service
+from app.services import audit_service, file_service, notification_service
 from app.services.channels.base import Message, NotificationChannel
 from app.services.storage import FileInfo
 
@@ -45,35 +46,52 @@ class InMemoryStorageBackend:
         ]
 
 
-@pytest_asyncio.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    test_engine = create_async_engine(TEST_DB_URL, echo=False)
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+@pytest_asyncio.fixture(autouse=True)
+async def _reset_rate_limiter():
+    limiter.reset()
+    yield
+    limiter.reset()
 
+
+@pytest_asyncio.fixture
+async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
+    engine = create_async_engine(TEST_DB_URL, echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield engine
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def db_session(test_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
     test_session_factory = async_sessionmaker(test_engine, expire_on_commit=False)
     async with test_session_factory() as session:
         yield session
 
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await test_engine.dispose()
-
 
 @pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def client(db_session: AsyncSession, test_engine: AsyncEngine) -> AsyncGenerator[AsyncClient, None]:
     async def _override_get_db():
         yield db_session
+
+    test_session_factory = async_sessionmaker(test_engine, expire_on_commit=False)
 
     app.dependency_overrides[get_db] = _override_get_db
     file_service._backend = InMemoryStorageBackend()
     notification_service._channels = [InMemoryChannel()]
+
+    _original_factory = audit_service.async_session_factory
+    audit_service.async_session_factory = test_session_factory
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
     file_service._backend = None
     notification_service._channels = None
+    audit_service.async_session_factory = _original_factory
 
 
 @pytest_asyncio.fixture

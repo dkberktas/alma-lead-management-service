@@ -49,16 +49,25 @@ class ResumeUrlResponse(BaseModel):
 
 class AuditLogResponse(BaseModel):
     id: uuid.UUID
-    lead_id: uuid.UUID
-    user_id: uuid.UUID
-    user_email: str
+    entity_type: str
+    entity_id: uuid.UUID
     action: str
-    old_state: str
-    new_state: str
+    user_id: uuid.UUID | None = None
+    user_email: str | None = None
+    old_state: str | None = None
+    new_state: str | None = None
     detail: str | None = None
+    lead_id: uuid.UUID | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class AuditLogListResponse(BaseModel):
+    items: list[AuditLogResponse]
+    total: int
+    limit: int
+    offset: int
 
 
 class FileInfoResponse(BaseModel):

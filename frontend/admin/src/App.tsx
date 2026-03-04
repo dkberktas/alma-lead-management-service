@@ -5,6 +5,7 @@ import EnvBadge from "./components/EnvBadge";
 import LoginPage from "./pages/LoginPage";
 import LeadsPage from "./pages/LeadsPage";
 import AttorneysPage from "./pages/AttorneysPage";
+import AuditTrailPage from "./pages/AuditTrailPage";
 
 function NavBar() {
   const { isAuthenticated, user, logout } = useAuth();
@@ -40,9 +41,14 @@ function NavBar() {
                 Leads
               </NavLink>
               {isAdmin && (
-                <NavLink to="/attorneys" className={linkClass}>
-                  Attorneys
-                </NavLink>
+                <>
+                  <NavLink to="/attorneys" className={linkClass}>
+                    Attorneys
+                  </NavLink>
+                  <NavLink to="/audit" className={linkClass}>
+                    Audit Trail
+                  </NavLink>
+                </>
               )}
             </nav>
           )}
@@ -93,6 +99,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <AttorneysPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/audit"
+          element={
+            <ProtectedRoute>
+              <AuditTrailPage />
             </ProtectedRoute>
           }
         />
