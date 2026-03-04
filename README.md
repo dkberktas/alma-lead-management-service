@@ -122,7 +122,6 @@ An end-to-end script that creates attorneys, submits leads, and verifies the ful
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/auth/register` | Register a user (first user becomes admin, subsequent are attorneys) |
 | `POST` | `/api/auth/login` | Login and receive a JWT |
 
 ### Internal — Attorney or Admin (requires `Authorization: Bearer <token>`)
@@ -154,14 +153,6 @@ curl -X POST http://localhost:8000/api/leads \
   -F "last_name=Doe" \
   -F "email=jane@example.com" \
   -F "resume=@resume.pdf;type=application/pdf"
-```
-
-### Register the first user (becomes admin)
-
-```bash
-curl -X POST http://localhost:8000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@alma.com","password":"securepass"}'
 ```
 
 ### Login
@@ -218,7 +209,7 @@ alembic/
 app/
 ├── api/routes/        # Route handlers (thin controllers)
 │   ├── admin.py       # Admin-only user management
-│   ├── auth.py        # Register + login
+│   ├── auth.py        # Login
 │   └── leads.py       # Lead CRUD
 ├── core/              # Config, security, dependencies
 │   ├── config.py      # Environment-driven settings
