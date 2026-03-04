@@ -15,9 +15,13 @@ admin_session_factory = async_sessionmaker(admin_engine, expire_on_commit=False)
 
 
 async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
-    async with async_session_factory() as session:
-        user_id = getattr(request.state, "current_user_id", None)
-        if user_id:
-            safe_uid = str(uuid.UUID(str(user_id)))
-            await session.execute(text(f"SET LOCAL app.current_user_id = '{safe_uid}'"))
-        yield session
+    async with engine.connect() as conn:
+        async with AsyncSession(bind=conn, expire_on_commit=False) as session:
+            user_id = getattr(request.state, "current_user_id", None)
+            if user_id:
+                safe_uid = str(uuid.UUID(str(user_id)))
+                await session.execute(text(f"SET app.current_user_id = '{safe_uid}'"))
+                role = getattr(request.state, "current_user_role", None)
+                if role and role in ("ADMIN", "ATTORNEY"):
+                    await session.execute(text(f"SET app.current_user_role = '{role}'"))
+            yield session

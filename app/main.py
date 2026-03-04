@@ -79,11 +79,13 @@ async def set_rls_context(request: Request, call_next):
     """Extract user ID from JWT (if present) and store in request state
     so get_db can forward it to PostgreSQL via SET LOCAL for RLS."""
     request.state.current_user_id = None
+    request.state.current_user_role = None
     auth_header = request.headers.get("authorization", "")
     if auth_header.startswith("Bearer "):
         try:
             payload = decode_access_token(auth_header[7:])
             request.state.current_user_id = payload["sub"]
+            request.state.current_user_role = payload.get("role")
         except HTTPException:
             pass
     return await call_next(request)
