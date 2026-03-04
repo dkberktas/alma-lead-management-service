@@ -16,6 +16,15 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"
     max_upload_size_mb: int = 10
 
+    storage_backend: str = "local"  # "local" or "s3"
+    s3_bucket: str = ""
+    s3_prefix: str = "resumes"
+    s3_region: str = ""
+    s3_endpoint_url: str = ""  # for S3-compatible services (MinIO, LocalStack)
+
+    admin_email: str = ""
+    admin_password: str = ""
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

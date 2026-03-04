@@ -175,6 +175,7 @@ app/
 │   ├── dependencies.py # Auth dependencies (get_current_user, require_admin)
 │   └── security.py    # JWT + bcrypt utilities
 ├── db/
+│   ├── seed.py        # Admin user bootstrap on startup
 │   └── session.py     # Async SQLAlchemy engine + session
 ├── models/            # SQLAlchemy ORM models
 │   ├── lead.py        # Lead (id, name, email, resume, state)
@@ -209,6 +210,26 @@ All settings are loaded from environment variables (see `.env.example`):
 | `ATTORNEY_EMAIL` | `attorney@alma.com` | Notification recipient |
 | `UPLOAD_DIR` | `uploads` | File upload directory |
 | `MAX_UPLOAD_SIZE_MB` | `10` | Max resume file size |
+| `ADMIN_EMAIL` | *(empty)* | Seed admin email (see [Admin Bootstrap](#admin-bootstrap)) |
+| `ADMIN_PASSWORD` | *(empty)* | Seed admin password |
+
+## Admin Bootstrap
+
+The application can automatically seed an admin user on startup. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your `.env` file:
+
+```bash
+ADMIN_EMAIL=admin@alma.com
+ADMIN_PASSWORD=change-me-in-production
+```
+
+On each startup the seed logic will:
+1. **Skip** if `ADMIN_EMAIL` or `ADMIN_PASSWORD` are empty (the default).
+2. **Skip** if a user with that email already exists.
+3. **Create** an admin account with role `ADMIN` otherwise.
+
+This is idempotent — safe to leave configured across restarts. Once the admin account exists, you can use the admin-only endpoints (`POST /api/admin/attorneys`) to create additional attorney accounts.
+
+> **Production note:** Use a strong password and rotate it after first login. The seed password is only used for initial account creation.
 
 ## Design Decisions
 
