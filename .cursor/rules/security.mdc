@@ -1,0 +1,29 @@
+---
+description: Security practices for auth, secrets, and input handling
+alwaysApply: true
+---
+
+# Security
+
+## Secrets Management
+
+- Never hardcode secrets, API keys, or passwords in source code
+- Use environment variables loaded via `pydantic-settings` or `.env` files
+- `.env` files must be in `.gitignore` — provide `.env.example` instead
+
+## Authentication
+
+- Internal endpoints require JWT Bearer tokens validated via `Depends()`
+- Public endpoints (lead submission) must not require authentication
+- Hash passwords with `bcrypt` via `passlib` — never store plaintext
+
+## Input Validation
+
+- All inputs validated through Pydantic schemas before reaching service layer
+- Sanitize file uploads: validate MIME type, limit file size, use UUID filenames
+- Never trust client-provided filenames for storage
+
+## CORS
+
+- Configure allowed origins explicitly in production
+- Dev mode can use `["*"]` but must not ship to prod that way

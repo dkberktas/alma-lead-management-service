@@ -1,0 +1,36 @@
+---
+description: REST API design conventions for FastAPI routes
+globs: "app/api/**/*.py"
+alwaysApply: false
+---
+
+# API Design
+
+## URL Conventions
+
+- Use plural nouns for resources: `/leads`, not `/lead`
+- Use kebab-case for multi-word paths: `/leads/{id}/reached-out`
+- Version prefix when needed: `/api/v1/...`
+
+## HTTP Methods
+
+- `POST` for creation (returns 201)
+- `GET` for reads (returns 200)
+- `PUT/PATCH` for updates (returns 200)
+- `DELETE` for removal (returns 204)
+
+## Response Shape
+
+- Success: return the Pydantic model directly (FastAPI serializes it)
+- Errors: raise `HTTPException` with appropriate status code and `detail`
+- List endpoints: return `list[Schema]` — add pagination if needed
+
+## Status Codes
+
+- 200: successful read/update
+- 201: successful creation
+- 400: validation error (FastAPI handles via Pydantic)
+- 401: missing or invalid auth
+- 403: authenticated but not authorized
+- 404: resource not found
+- 422: request body validation failure (FastAPI default)

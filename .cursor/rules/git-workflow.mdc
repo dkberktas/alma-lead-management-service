@@ -1,0 +1,24 @@
+---
+description: Git commit and branching conventions
+alwaysApply: true
+---
+
+# Git Workflow
+
+## Commit Messages
+
+- Use conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`
+- Keep subject line under 72 characters
+- Use imperative mood: "add lead endpoint" not "added lead endpoint"
+
+## What to Commit
+
+- Never commit `.env`, credentials, or secrets
+- Never commit `__pycache__/`, `.pyc`, or IDE config
+- Keep `uploads/` out of version control (add to `.gitignore`)
+- Commit `requirements.txt` / `pyproject.toml` with pinned versions
+
+## Branching
+
+- `main` — stable, deployable code
+- Feature branches: `feat/lead-crud`, `fix/email-validation`

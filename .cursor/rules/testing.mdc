@@ -1,0 +1,37 @@
+---
+description: Testing conventions for pytest
+globs: "tests/**/*.py"
+alwaysApply: false
+---
+
+# Testing
+
+## Structure
+
+- Mirror the `app/` layout: `tests/test_routes.py`, `tests/test_services.py`
+- Prefix test files with `test_` and test functions with `test_`
+- Use fixtures for shared setup (db sessions, test client, auth tokens)
+
+## Fixtures
+
+```python
+@pytest_asyncio.fixture
+async def client(db_session):
+    """Async test client with dependency overrides."""
+    ...
+```
+
+## Assertions
+
+- Test both success and error paths
+- Verify status codes, response bodies, and side effects
+- For file uploads, use `httpx` multipart support
+
+## Running
+
+```bash
+pytest                  # all tests
+pytest -x               # stop on first failure
+pytest -k "test_create" # filter by name
+pytest --cov=app        # with coverage
+```

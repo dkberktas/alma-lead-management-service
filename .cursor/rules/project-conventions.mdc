@@ -1,0 +1,49 @@
+---
+description: Core project conventions for Alma Lead Management Service
+alwaysApply: true
+---
+
+# Alma Lead Management Service
+
+FastAPI application for managing leads (prospect intake forms with resume upload).
+
+## Knowledge Files
+
+Before starting work, read relevant files from `knowledge/` for project context:
+- `knowledge/assignment.md` — Original assignment requirements and constraints
+- `knowledge/adr-*.md` — Architecture decision records
+
+Always consult these files when making architectural decisions or when unsure about requirements. When making a significant design choice, create an ADR file in `knowledge/` (see `knowledge-files` rule for format).
+
+## Stack
+
+- **Framework**: FastAPI (Python 3.11+)
+- **ORM**: SQLAlchemy 2.0 with async support
+- **Database**: SQLite (dev), PostgreSQL-ready via config
+- **Auth**: JWT bearer tokens for internal endpoints
+- **Validation**: Pydantic v2
+
+## Project Structure
+
+```
+app/
+  api/routes/     # Route handlers (thin controllers)
+  core/           # Config, security, dependencies
+  db/             # Database engine, session, migrations
+  models/         # SQLAlchemy ORM models
+  schemas/        # Pydantic request/response schemas
+  services/       # Business logic layer
+tests/            # pytest test suite
+knowledge/        # Project context docs (read before working)
+```
+
+## Conventions
+
+- Keep route handlers thin — delegate logic to `app/services/`
+- All database access goes through service functions, never in routes directly
+- Public endpoints (lead submission) require no auth
+- Internal endpoints (list leads, update state) require JWT auth
+- Use `Depends()` for dependency injection (db sessions, auth)
+- Return Pydantic response models from all endpoints
+- Lead states: `PENDING` → `REACHED_OUT` (one-way transition)
+- File uploads stored on disk under `uploads/` with UUID filenames

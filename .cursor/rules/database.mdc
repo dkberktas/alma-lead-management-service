@@ -1,0 +1,31 @@
+---
+description: Database and SQLAlchemy patterns
+globs: "app/{db,models}/**/*.py"
+alwaysApply: false
+---
+
+# Database Patterns
+
+## SQLAlchemy Models
+
+- Use `DeclarativeBase` (SQLAlchemy 2.0 style)
+- Use `Mapped[]` and `mapped_column()` for typed columns
+- Add `created_at` and `updated_at` timestamps to all models
+- Use UUID primary keys for public-facing resources
+
+## Sessions
+
+- Inject `AsyncSession` via FastAPI `Depends(get_db)`
+- Always use `async with` or the dependency's teardown for cleanup
+- One session per request — never share sessions across requests
+
+## Queries
+
+- Use `select()` style (2.0 query API), not legacy `session.query()`
+- Use `scalars()` for single-column results
+- Add `.options()` for eager loading when needed to avoid N+1
+
+## Migrations
+
+- If using Alembic, keep migrations in `alembic/versions/`
+- Each migration should be reversible (include `downgrade()`)

@@ -1,0 +1,60 @@
+---
+description: Read and maintain knowledge files for project context
+alwaysApply: true
+---
+
+# Knowledge Files
+
+The `knowledge/` directory contains essential project context documents.
+
+## When to Read
+
+- **Starting a new task**: Read relevant knowledge files first
+- **Architectural decisions**: Check `knowledge/assignment.md` for original requirements
+- **Unsure about scope**: Requirements and constraints are documented there
+- **Adding new features**: Verify alignment with the assignment spec
+
+## How to Use
+
+1. Before coding, read the relevant knowledge file(s)
+2. Reference specific requirements when making design choices
+3. If you add new context documents to `knowledge/`, update this rule
+
+## Architecture Decision Records (ADRs)
+
+When making a significant architectural or design decision, create an ADR in `knowledge/` to capture the reasoning. This includes:
+
+- Choosing a library, framework, or tool over alternatives
+- Structuring the codebase or database schema in a specific way
+- Picking an authentication or authorization strategy
+- Designing an API contract or data flow
+- Any trade-off where "why" matters more than "what"
+
+### ADR Format
+
+Use `knowledge/adr-NNN-short-title.md` with this structure:
+
+```markdown
+# ADR-NNN: Short Title
+
+## Status
+Accepted | Superseded by ADR-XXX | Deprecated
+
+## Context
+What problem or decision are we facing?
+
+## Decision
+What did we choose and why?
+
+## Alternatives Considered
+What else was evaluated and why was it rejected?
+
+## Consequences
+What are the trade-offs, risks, or follow-up work?
+```
+
+### Current Knowledge Files
+
+- `knowledge/assignment.md` — Original assignment requirements and constraints
+- `knowledge/open-questions.md` — Ambiguities, open questions, and working assumptions
+- `knowledge/adr-*.md` — Architecture decision records (created as decisions are made)
