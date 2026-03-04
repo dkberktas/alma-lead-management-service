@@ -223,6 +223,7 @@ app/
 ├── core/              # Config, security, dependencies
 │   ├── config.py      # Environment-driven settings
 │   ├── dependencies.py # Auth dependencies (get_current_user, require_admin)
+│   ├── rate_limit.py  # slowapi rate limiter instance
 │   └── security.py    # JWT + bcrypt utilities
 ├── db/
 │   ├── seed.py        # Admin user bootstrap on startup
@@ -266,12 +267,25 @@ All settings are loaded from environment variables (see `.env.example`):
 | `EMAIL_FROM` | `noreply@alma.com` | Sender address |
 | `ATTORNEY_EMAIL` | `attorney@alma.com` | Notification recipient for new leads |
 | `MAX_UPLOAD_SIZE_MB` | `10` | Max resume file size |
+| `RATE_LIMIT_PER_MINUTE` | `5` | Max lead submissions per IP per minute |
+| `RATE_LIMIT_PER_HOUR` | `20` | Max lead submissions per IP per hour |
 | `S3_BUCKET` | — | S3 bucket name (required) |
 | `S3_PREFIX` | `resumes` | S3 key prefix for uploaded files |
 | `S3_REGION` | *(empty)* | AWS region (e.g., `us-east-1`) |
 | `S3_ENDPOINT_URL` | *(empty)* | Custom S3 endpoint (for MinIO / LocalStack) |
 | `ADMIN_EMAIL` | *(empty)* | Seed admin email (see [Admin Bootstrap](#admin-bootstrap)) |
 | `ADMIN_PASSWORD` | *(empty)* | Seed admin password |
+
+## Rate Limiting
+
+The public lead submission endpoint (`POST /api/leads`) is rate-limited per IP address to prevent abuse. Requests that exceed the limit receive a `429 Too Many Requests` response with a `Retry-After` header.
+
+Default limits:
+
+- **5 requests per minute** per IP
+- **20 requests per hour** per IP
+
+Tune via `RATE_LIMIT_PER_MINUTE` and `RATE_LIMIT_PER_HOUR` in `.env`. The rate limiter uses in-memory storage, which is suitable for single-process deployments. For multi-worker setups, swap to a Redis-backed storage by updating the `storage_uri` in `app/core/rate_limit.py`.
 
 ## Admin Bootstrap
 

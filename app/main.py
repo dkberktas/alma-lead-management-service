@@ -1,13 +1,17 @@
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app.api.routes import admin, auth, leads
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.db.seed import seed_admin, seed_attorney
 from app.db.session import async_session_factory
 
@@ -32,6 +36,31 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+
+
+async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    headers = {}
+    try:
+        rate_limit_info = request.state.view_rate_limit
+        if rate_limit_info:
+            window_stats = limiter.limiter.get_window_stats(
+                rate_limit_info[0], *rate_limit_info[1]
+            )
+            retry_after = max(0, int(window_stats[0] - time.time()))
+            headers["Retry-After"] = str(retry_after)
+    except Exception:
+        pass
+    return JSONResponse(
+        status_code=429,
+        content={"detail": f"Rate limit exceeded: {exc.detail}"},
+        headers=headers,
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     seed_attorney_email: str = ""
     seed_attorney_password: str = ""
 
+    rate_limit_per_minute: int = 5
+    rate_limit_per_hour: int = 20
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
