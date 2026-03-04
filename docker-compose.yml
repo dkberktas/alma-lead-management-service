@@ -25,6 +25,7 @@ services:
       - ./app:/code/app
       - ./uploads:/code/uploads
       - ~/.aws:/root/.aws:ro
+    stop_grace_period: 35s
     depends_on:
       db:
         condition: service_healthy
