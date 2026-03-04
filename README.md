@@ -98,6 +98,7 @@ An end-to-end script that creates attorneys, submits leads, and verifies the ful
 | `GET` | `/api/leads` | List all leads |
 | `GET` | `/api/leads/{id}` | Get a single lead |
 | `PATCH` | `/api/leads/{id}` | Update lead state (`PENDING` → `REACHED_OUT`) |
+| `GET` | `/api/leads/{id}/resume-url` | Get a short-lived download URL for the lead's resume |
 
 ### Admin Only (requires admin JWT)
 
@@ -154,6 +155,16 @@ curl http://localhost:8000/api/leads \
   -H "Authorization: Bearer <token>"
 ```
 
+### Get a resume download URL (authenticated)
+
+```bash
+curl http://localhost:8000/api/leads/<lead-id>/resume-url \
+  -H "Authorization: Bearer <token>"
+# → {"url":"https://s3.amazonaws.com/...?X-Amz-Signature=..."}
+```
+
+The returned URL is a presigned S3 URL valid for 5 minutes. Open it in a browser or use it in an `<iframe>` / `<a href>` to download the file.
+
 ### Mark a lead as reached out
 
 ```bash
@@ -194,6 +205,8 @@ app/
 tests/                 # pytest test suite
 scripts/               # Utility scripts (smoke test)
 knowledge/             # Project context, ADRs, open questions
+frontend/
+└── admin/             # Attorney admin UI (React + Vite)
 ```
 
 ## Configuration
@@ -202,6 +215,7 @@ All settings are loaded from environment variables (see `.env.example`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `ENVIRONMENT` | `development` | Environment name (`development`, `staging`, `production`) |
 | `DATABASE_URL` | `postgresql+asyncpg://...` | Async database connection string |
 | `SECRET_KEY` | — | JWT signing key (change in production!) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | JWT token lifetime |
@@ -250,6 +264,31 @@ To use an S3-compatible service (e.g., MinIO), set `S3_ENDPOINT_URL`:
 ```bash
 S3_ENDPOINT_URL=http://localhost:9000
 ```
+
+## Admin Frontend
+
+A lightweight React app for attorneys to log in and review leads.
+
+### Running the Admin UI
+
+```bash
+cd frontend/admin
+npm install
+npm run dev
+# → http://localhost:5173
+```
+
+### Connecting to Different API Environments
+
+Add a `?api=` query parameter to the URL to target a specific backend:
+
+| URL | Backend |
+|-----|---------|
+| `http://localhost:5173` | Local API (`http://localhost:8000`) |
+| `http://localhost:5173?api=staging` | Staging API (TBD) |
+| `http://localhost:5173?api=prod` | Production API (TBD) |
+
+The current environment is shown as a badge in the top-right corner.
 
 ## Design Decisions
 

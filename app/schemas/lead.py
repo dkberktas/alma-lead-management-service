@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, computed_field, field_validator
 
 from app.models.lead import LeadState
 
@@ -26,16 +26,25 @@ class LeadResponse(BaseModel):
     first_name: str
     last_name: str
     email: EmailStr
-    resume_path: str
     state: LeadState
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def resume_url(self) -> str:
+        """Auth-protected endpoint that returns a short-lived download URL."""
+        return f"/api/leads/{self.id}/resume-url"
+
 
 class LeadStateUpdate(BaseModel):
     state: LeadState
+
+
+class ResumeUrlResponse(BaseModel):
+    url: str
 
 
 class FileInfoResponse(BaseModel):

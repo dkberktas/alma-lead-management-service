@@ -30,7 +30,8 @@ async def test_create_lead(client: AsyncClient):
     assert data["last_name"] == "Doe"
     assert data["email"] == "jane@example.com"
     assert data["state"] == "PENDING"
-    assert data["resume_path"].endswith(".pdf")
+    assert "resume_path" not in data
+    assert data["resume_url"] == f"/api/leads/{data['id']}/resume-url"
 
 
 @pytest.mark.asyncio
@@ -298,3 +299,48 @@ async def test_cannot_revert_state(client: AsyncClient, auth_token: str):
     await client.patch(f"/api/leads/{lead_id}", json={"state": "REACHED_OUT"}, headers=headers)
     resp = await client.patch(f"/api/leads/{lead_id}", json={"state": "PENDING"}, headers=headers)
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Resume download URL
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_resume_url_requires_auth(client: AsyncClient):
+    create_resp = await client.post(
+        "/api/leads",
+        data=_valid_lead_data(email="noauth@resume.com"),
+        files=[_resume_file()],
+    )
+    lead_id = create_resp.json()["id"]
+    resp = await client.get(f"/api/leads/{lead_id}/resume-url")
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_resume_url(client: AsyncClient, auth_token: str):
+    create_resp = await client.post(
+        "/api/leads",
+        data=_valid_lead_data(email="resume@url.com"),
+        files=[_resume_file()],
+    )
+    lead_id = create_resp.json()["id"]
+    resp = await client.get(
+        f"/api/leads/{lead_id}/resume-url",
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "url" in data
+    assert len(data["url"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_resume_url_not_found(client: AsyncClient, auth_token: str):
+    fake_id = "00000000-0000-0000-0000-000000000000"
+    resp = await client.get(
+        f"/api/leads/{fake_id}/resume-url",
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert resp.status_code == 404

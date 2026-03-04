@@ -42,5 +42,10 @@ async def save_resume(file: UploadFile) -> str:
     return await _get_backend().save(contents, key)
 
 
+def get_resume_url(resume_path: str) -> str:
+    """Generate a download URL for the given stored resume reference."""
+    return _get_backend().url(resume_path)
+
+
 async def list_files() -> list[FileInfo]:
     return await _get_backend().list_files()

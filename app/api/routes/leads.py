@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.db.session import get_db
-from app.schemas.lead import LeadCreateForm, LeadResponse, LeadStateUpdate
+from app.schemas.lead import LeadCreateForm, LeadResponse, LeadStateUpdate, ResumeUrlResponse
 from app.services import email_service, file_service, lead_service
 
 router = APIRouter(prefix="/leads", tags=["leads"])
@@ -75,3 +75,15 @@ async def update_lead_state(
 ):
     """Internal endpoint — attorney marks a lead as REACHED_OUT."""
     return await lead_service.update_lead_state(db, lead_id, body.state)
+
+
+@router.get("/{lead_id}/resume-url", response_model=ResumeUrlResponse)
+async def get_resume_url(
+    lead_id: uuid.UUID,
+    _user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Internal endpoint — get a short-lived download URL for a lead's resume."""
+    lead = await lead_service.get_lead(db, lead_id)
+    url = file_service.get_resume_url(lead.resume_path)
+    return ResumeUrlResponse(url=url)

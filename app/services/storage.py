@@ -31,11 +31,14 @@ class StorageBackend(ABC):
 
     @abstractmethod
     async def save(self, data: bytes, key: str) -> str:
-        """Persist *data* under *key* and return the stored reference (path or URL)."""
+        """Persist *data* under *key* and return the stored reference (path or S3 key)."""
 
     @abstractmethod
-    def url(self, key: str) -> str:
-        """Return a URL (or path) to retrieve a previously stored object."""
+    def url(self, stored_ref: str) -> str:
+        """Return a download URL for a previously stored object.
+
+        *stored_ref* is the value returned by :meth:`save`.
+        """
 
     @abstractmethod
     async def list_files(self) -> list[FileInfo]:
@@ -53,8 +56,8 @@ class LocalStorageBackend(StorageBackend):
             await f.write(data)
         return str(filepath)
 
-    def url(self, key: str) -> str:
-        return str(self._upload_dir / key)
+    def url(self, stored_ref: str) -> str:
+        return str(Path(stored_ref))
 
     _RESUME_EXTENSIONS = {".pdf", ".docx"}
 
@@ -99,12 +102,17 @@ class S3StorageBackend(StorageBackend):
         self._client.put_object(Bucket=self._bucket, Key=s3_key, Body=data)
         return s3_key
 
-    def url(self, key: str) -> str:
-        s3_key = f"{self._prefix}/{key}" if self._prefix else key
+    _PRESIGNED_EXPIRY = 300  # 5 minutes
+
+    def url(self, stored_ref: str) -> str:
         return self._client.generate_presigned_url(
             "get_object",
-            Params={"Bucket": self._bucket, "Key": s3_key},
-            ExpiresIn=3600,
+            Params={
+                "Bucket": self._bucket,
+                "Key": stored_ref,
+                "ResponseContentDisposition": "attachment",
+            },
+            ExpiresIn=self._PRESIGNED_EXPIRY,
         )
 
     async def list_files(self) -> list[FileInfo]:

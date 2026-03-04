@@ -26,7 +26,7 @@
       "type": "string"
     },
     {
-      "key": "resume_path",
+      "key": "resume_url",
       "value": "",
       "type": "string"
     }
@@ -150,13 +150,17 @@
                   "if (pm.response.code === 201) {",
                   "    var json = pm.response.json();",
                   "    pm.collectionVariables.set('lead_id', json.id);",
-                  "    pm.collectionVariables.set('resume_path', json.resume_path);",
+                  "    pm.collectionVariables.set('resume_url', json.resume_url);",
                   "    pm.test('Lead ID saved to collection variable', function () {",
                   "        pm.expect(json.id).to.be.a('string');",
                   "    });",
-                  "    pm.test('Resume path is present', function () {",
-                  "        pm.expect(json.resume_path).to.be.a('string');",
-                  "        pm.expect(json.resume_path).to.have.length.above(0);",
+                  "    pm.test('Resume URL points to auth-protected endpoint', function () {",
+                  "        pm.expect(json.resume_url).to.be.a('string');",
+                  "        pm.expect(json.resume_url).to.include('/api/leads/');",
+                  "        pm.expect(json.resume_url).to.include('/resume-url');",
+                  "    });",
+                  "    pm.test('Raw resume_path is not exposed', function () {",
+                  "        pm.expect(json).to.not.have.property('resume_path');",
                   "    });",
                   "}"
                 ]
@@ -269,6 +273,52 @@
               "path": ["api", "leads", "{{lead_id}}"]
             },
             "description": "Transition a lead from PENDING to REACHED_OUT. Requires JWT authentication.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Resume Download URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.test('Response contains a download URL', function () {",
+                  "        pm.expect(json).to.have.property('url');",
+                  "        pm.expect(json.url).to.be.a('string');",
+                  "        pm.expect(json.url).to.have.length.above(0);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/leads/{{lead_id}}/resume-url",
+              "host": ["{{base_url}}"],
+              "path": ["api", "leads", "{{lead_id}}", "resume-url"]
+            },
+            "description": "Get a short-lived (5-minute) presigned download URL for a lead's resume. Requires JWT authentication (admin or attorney). The returned URL can be opened directly in a browser to download the file.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -481,10 +531,10 @@
                   "",
                   "if (pm.response.code === 201) {",
                   "    var json = pm.response.json();",
-                  "    pm.test('Resume stored on local disk', function () {",
-                  "        pm.expect(json.resume_path).to.be.a('string');",
-                  "        pm.expect(json.resume_path).to.match(/uploads[/\\\\]/);",
-                  "        pm.expect(json.resume_path).to.match(/\\.pdf$/);",
+                  "    pm.test('Resume URL points to auth-protected endpoint', function () {",
+                  "        pm.expect(json.resume_url).to.be.a('string');",
+                  "        pm.expect(json.resume_url).to.include('/api/leads/');",
+                  "        pm.expect(json.resume_url).to.include('/resume-url');",
                   "    });",
                   "    pm.test('Lead has PENDING state', function () {",
                   "        pm.expect(json.state).to.eql('PENDING');",
@@ -528,7 +578,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "leads"]
             },
-            "description": "Submit a lead and verify the resume was stored on local disk (STORAGE_BACKEND=local). Expects `resume_path` to start with `uploads/`."
+            "description": "Submit a lead and verify the response includes an auth-protected `resume_url` (STORAGE_BACKEND=local). The raw storage path is never exposed."
           },
           "response": []
         },
@@ -546,15 +596,13 @@
                   "",
                   "if (pm.response.code === 201) {",
                   "    var json = pm.response.json();",
-                  "    pm.test('Resume stored in S3 (key has resumes/ prefix)', function () {",
-                  "        pm.expect(json.resume_path).to.be.a('string');",
-                  "        pm.expect(json.resume_path).to.match(/^resumes\\//);",
+                  "    pm.test('Resume URL points to auth-protected endpoint', function () {",
+                  "        pm.expect(json.resume_url).to.be.a('string');",
+                  "        pm.expect(json.resume_url).to.include('/api/leads/');",
+                  "        pm.expect(json.resume_url).to.include('/resume-url');",
                   "    });",
-                  "    pm.test('S3 key ends with file extension', function () {",
-                  "        pm.expect(json.resume_path).to.match(/\\.(pdf|docx)$/);",
-                  "    });",
-                  "    pm.test('S3 key contains UUID', function () {",
-                  "        pm.expect(json.resume_path).to.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);",
+                  "    pm.test('Raw S3 key is not exposed', function () {",
+                  "        pm.expect(json).to.not.have.property('resume_path');",
                   "    });",
                   "    pm.test('Lead has PENDING state', function () {",
                   "        pm.expect(json.state).to.eql('PENDING');",
@@ -598,7 +646,7 @@
               "host": ["{{base_url}}"],
               "path": ["api", "leads"]
             },
-            "description": "Submit a lead and verify the resume was stored in S3 (STORAGE_BACKEND=s3). Expects `resume_path` to be an S3 key like `resumes/<uuid>.pdf`. Make sure the server is running with STORAGE_BACKEND=s3 and S3_BUCKET set."
+            "description": "Submit a lead and verify the response includes an auth-protected `resume_url` (STORAGE_BACKEND=s3). The raw S3 key is never exposed. Make sure the server is running with STORAGE_BACKEND=s3 and S3_BUCKET set."
           },
           "response": []
         },
