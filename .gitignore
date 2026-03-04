@@ -20,6 +20,9 @@ env/
 uploads/*
 !uploads/.gitkeep
 
+# Node / Frontend
+node_modules/
+
 # IDE
 .vscode/
 .idea/

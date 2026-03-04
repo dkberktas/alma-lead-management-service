@@ -55,6 +55,40 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
+## Database Migrations
+
+Schema changes are managed with [Alembic](https://alembic.sqlalchemy.org/). The Docker container runs `alembic upgrade head` automatically on startup.
+
+### Creating a new migration
+
+After modifying a SQLAlchemy model, generate a migration:
+
+```bash
+# Inside the Docker container
+docker compose exec app alembic revision --autogenerate -m "describe the change"
+
+# Or from the host (override DATABASE_URL to use localhost)
+DATABASE_URL=postgresql+asyncpg://alma:alma_dev_password@localhost:5432/alma_leads \
+  alembic revision --autogenerate -m "describe the change"
+```
+
+Review the generated file in `alembic/versions/`, then apply:
+
+```bash
+docker compose exec app alembic upgrade head
+```
+
+### Useful Alembic commands
+
+```bash
+alembic current          # show current revision
+alembic history          # list all migrations
+alembic upgrade head     # apply all pending migrations
+alembic downgrade -1     # roll back the last migration
+```
+
+> **Note:** Tests use an in-memory SQLite database with `create_all()` and are unaffected by Alembic migrations.
+
 ## Running Tests
 
 Tests use an in-memory SQLite database — no Docker or Postgres needed.
@@ -177,6 +211,10 @@ curl -X PATCH http://localhost:8000/api/leads/<lead-id> \
 ## Project Structure
 
 ```
+alembic/
+├── env.py             # Async migration environment
+├── script.py.mako     # Migration template
+└── versions/          # Migration scripts (001_initial_schema.py, ...)
 app/
 ├── api/routes/        # Route handlers (thin controllers)
 │   ├── admin.py       # Admin-only user management
@@ -197,10 +235,11 @@ app/
 │   └── lead.py
 ├── services/          # Business logic layer
 │   ├── auth_service.py
-│   ├── email_service.py
+│   ├── channels/      # Pluggable notification channels (Resend, SMTP, log)
 │   ├── file_service.py
 │   ├── lead_service.py
-│   └── storage.py     # S3 storage backend
+│   ├── notification_service.py
+│   └── storage.py     # Pluggable storage backend (S3, local)
 └── main.py            # App entry point
 tests/                 # pytest test suite
 scripts/               # Utility scripts (smoke test)
@@ -219,11 +258,13 @@ All settings are loaded from environment variables (see `.env.example`):
 | `DATABASE_URL` | `postgresql+asyncpg://...` | Async database connection string |
 | `SECRET_KEY` | — | JWT signing key (change in production!) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | JWT token lifetime |
-| `SMTP_HOST` | *(empty)* | SMTP server. If empty, emails log to console |
+| `RESEND_API_KEY` | *(empty)* | [Resend](https://resend.com) API key (takes priority over SMTP) |
+| `SMTP_HOST` | *(empty)* | SMTP server (e.g. `smtp.gmail.com`). Falls back to log-only if empty |
 | `SMTP_PORT` | `587` | SMTP port |
-| `SMTP_USER` / `SMTP_PASSWORD` | — | SMTP credentials |
+| `SMTP_USER` / `SMTP_PASSWORD` | — | SMTP credentials (use App Password for Gmail) |
+| `SMTP_USE_TLS` | `true` | Enable STARTTLS |
 | `EMAIL_FROM` | `noreply@alma.com` | Sender address |
-| `ATTORNEY_EMAIL` | `attorney@alma.com` | Notification recipient |
+| `ATTORNEY_EMAIL` | `attorney@alma.com` | Notification recipient for new leads |
 | `MAX_UPLOAD_SIZE_MB` | `10` | Max resume file size |
 | `S3_BUCKET` | — | S3 bucket name (required) |
 | `S3_PREFIX` | `resumes` | S3 key prefix for uploaded files |
@@ -249,6 +290,61 @@ On each startup the seed logic will:
 This is idempotent — safe to leave configured across restarts. Once the admin account exists, you can use the admin-only endpoints (`POST /api/admin/attorneys`) to create additional attorney accounts.
 
 > **Production note:** Use a strong password and rotate it after first login. The seed password is only used for initial account creation.
+
+## Email Notifications
+
+When a new lead is submitted, the system sends two emails:
+
+1. **Confirmation** to the prospect ("We received your application")
+2. **Notification** to the attorney with the lead's full details (name, email, resume filename)
+
+By default (no email configured), these are logged to the console. To send real emails, configure one of the providers below.
+
+### Option A: Gmail via SMTP (recommended for dev)
+
+Gmail requires an **App Password** — your regular Google password will not work.
+
+**Step 1 — Generate an App Password:**
+
+1. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+2. Sign in (2-Step Verification must be enabled on your account)
+3. Select **Mail** as the app and your device, then click **Generate**
+4. Copy the 16-character password (e.g. `abcd efgh ijkl mnop`)
+
+**Step 2 — Add to `.env`:**
+
+```bash
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@gmail.com
+SMTP_PASSWORD="abcd efgh ijkl mnop"
+EMAIL_FROM=you@gmail.com
+ATTORNEY_EMAIL=attorney@alma.com
+```
+
+> **Note:** The app password contains spaces — wrap it in double quotes in `.env`.
+
+After updating `.env`, restart the backend:
+
+```bash
+docker compose up -d --build app
+```
+
+### Option B: Resend API
+
+If you prefer [Resend](https://resend.com), set `RESEND_API_KEY` instead (SMTP settings are ignored when Resend is configured):
+
+```bash
+RESEND_API_KEY=re_your_key_here
+EMAIL_FROM=noreply@yourdomain.com
+ATTORNEY_EMAIL=attorney@alma.com
+```
+
+You'll need to verify your sending domain in the Resend dashboard.
+
+### Priority
+
+The system picks the first available provider: **Resend > SMTP > log-only fallback**.
 
 ## File Storage
 
