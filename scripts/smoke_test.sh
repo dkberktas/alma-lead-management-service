@@ -49,7 +49,7 @@ echo "2. Login as seeded admin"
 
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@alma.com","password":"change-me-in-production"}')
+  -d '{"email":"dkberktas+admin@gmail.com","password":"change-me-in-production"}')
 STATUS=$(echo "$RESP" | tail -1)
 BODY=$(echo "$RESP" | sed '$d')
 assert_status "Login as admin" 200 "$STATUS"
@@ -63,7 +63,7 @@ echo "3. Admin creates attorney accounts"
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/admin/attorneys" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"email":"alice@alma.com","password":"attorney123"}')
+  -d '{"email":"dkberktas+alice@gmail.com","password":"attorney123"}')
 STATUS=$(echo "$RESP" | tail -1)
 BODY=$(echo "$RESP" | sed '$d')
 assert_status "Admin creates alice" 201 "$STATUS"
@@ -73,7 +73,7 @@ assert_field "Alice's role" "ATTORNEY" "$ALICE_ROLE"
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/admin/attorneys" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"email":"bob@alma.com","password":"attorney456"}')
+  -d '{"email":"dkberktas+bob@gmail.com","password":"attorney456"}')
 STATUS=$(echo "$RESP" | tail -1)
 assert_status "Admin creates bob" 201 "$STATUS"
 
@@ -81,7 +81,7 @@ assert_status "Admin creates bob" 201 "$STATUS"
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/admin/attorneys" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"email":"alice@alma.com","password":"attorney123"}')
+  -d '{"email":"dkberktas+alice@gmail.com","password":"attorney123"}')
 STATUS=$(echo "$RESP" | tail -1)
 assert_status "Duplicate attorney rejected" 400 "$STATUS"
 
@@ -91,7 +91,7 @@ echo "4. Login as attorney Alice"
 
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"alice@alma.com","password":"attorney123"}')
+  -d '{"email":"dkberktas+alice@gmail.com","password":"attorney123"}')
 STATUS=$(echo "$RESP" | tail -1)
 BODY=$(echo "$RESP" | sed '$d')
 assert_status "Login as Alice" 200 "$STATUS"
@@ -101,7 +101,7 @@ echo "  Attorney token: ${TOKEN:0:20}..."
 # Wrong password
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"alice@alma.com","password":"wrong"}')
+  -d '{"email":"dkberktas+alice@gmail.com","password":"wrong"}')
 STATUS=$(echo "$RESP" | tail -1)
 assert_status "Wrong password rejected" 401 "$STATUS"
 
@@ -112,7 +112,7 @@ echo "5. Attorney cannot access admin endpoints"
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/admin/attorneys" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"email":"sneaky@test.com","password":"x"}')
+  -d '{"email":"dkberktas+sneaky@gmail.com","password":"x"}')
 STATUS=$(echo "$RESP" | tail -1)
 assert_status "Attorney create attorney blocked" 403 "$STATUS"
 
@@ -143,7 +143,7 @@ echo "%PDF-1.4 fake resume content" > "$TMPFILE"
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/leads" \
   -F "first_name=Jane" \
   -F "last_name=Doe" \
-  -F "email=jane.doe@example.com" \
+  -F "email=dkberktas+jane@gmail.com" \
   -F "resume=@$TMPFILE;type=application/pdf")
 STATUS=$(echo "$RESP" | tail -1)
 BODY=$(echo "$RESP" | sed '$d')
@@ -156,7 +156,7 @@ echo "  Lead ID: $LEAD1_ID"
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/leads" \
   -F "first_name=John" \
   -F "last_name=Smith" \
-  -F "email=john.smith@example.com" \
+  -F "email=dkberktas+john@gmail.com" \
   -F "resume=@$TMPFILE;type=application/pdf")
 STATUS=$(echo "$RESP" | tail -1)
 assert_status "Create lead John Smith" 201 "$STATUS"
@@ -164,7 +164,7 @@ assert_status "Create lead John Smith" 201 "$STATUS"
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/leads" \
   -F "first_name=Maria" \
   -F "last_name=Garcia" \
-  -F "email=maria.garcia@example.com" \
+  -F "email=dkberktas+maria@gmail.com" \
   -F "resume=@$TMPFILE;type=application/pdf")
 STATUS=$(echo "$RESP" | tail -1)
 assert_status "Create lead Maria Garcia" 201 "$STATUS"
@@ -177,7 +177,7 @@ echo "plain text" > "$TXTFILE"
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/leads" \
   -F "first_name=Bad" \
   -F "last_name=File" \
-  -F "email=bad@example.com" \
+  -F "email=dkberktas+bad@gmail.com" \
   -F "resume=@$TXTFILE;type=text/plain")
 STATUS=$(echo "$RESP" | tail -1)
 assert_status "Reject .txt upload" 400 "$STATUS"
@@ -251,7 +251,7 @@ BODY=$(echo "$RESP" | sed '$d')
 BOB_ID=$(echo "$BODY" | python3 -c "
 import sys, json
 users = json.load(sys.stdin)
-bob = next(u for u in users if u['email'] == 'bob@alma.com')
+bob = next(u for u in users if u['email'] == 'dkberktas+bob@gmail.com')
 print(bob['id'])
 ")
 

@@ -21,12 +21,14 @@ TODOs
 - code review
 - spec file
 - final review
+- push to github
 
 
 Next
-- push to github
+/
 
 OOS
+- improve test coverage for RLS
 - rate limit in memory only, introduce storage potentially redis
 - move file upload from client to S3, skip lead service
 - optional lead fields
