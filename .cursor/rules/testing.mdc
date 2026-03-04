@@ -6,32 +6,41 @@ alwaysApply: false
 
 # Testing
 
+## Running Tests
+
+Always use the project virtual environment to run tests:
+
+```bash
+.venv/bin/python -m pytest tests/ -v                       # all tests, verbose
+.venv/bin/python -m pytest tests/test_leads.py -v           # single test file
+.venv/bin/python -m pytest tests/test_leads.py::test_create_lead -v  # single test
+.venv/bin/python -m pytest -x -v                            # stop on first failure
+.venv/bin/python -m pytest -k "test_create" -v              # filter by name
+.venv/bin/python -m pytest --cov=app -v                     # with coverage
+```
+
+Do NOT use bare `pytest` — the system Python may lack project dependencies.
+
+After making code changes, always run the relevant test file(s) and verify all tests pass before considering the task complete.
+
 ## Structure
 
-- Mirror the `app/` layout: `tests/test_routes.py`, `tests/test_services.py`
+- Mirror the `app/` layout: `tests/test_leads.py`, `tests/test_auth.py`, `tests/test_admin.py`
 - Prefix test files with `test_` and test functions with `test_`
-- Use fixtures for shared setup (db sessions, test client, auth tokens)
+- Use fixtures from `tests/conftest.py` for shared setup (db sessions, test client, auth tokens)
 
 ## Fixtures
 
-```python
-@pytest_asyncio.fixture
-async def client(db_session):
-    """Async test client with dependency overrides."""
-    ...
-```
+Key fixtures defined in `tests/conftest.py`:
+- `db_session` — async SQLite in-memory session (tables created/dropped per test)
+- `client` — `httpx.AsyncClient` with dependency overrides for the test db
+- `admin_token` — JWT for the first registered user (admin)
+- `auth_token` — JWT for a second registered user (attorney)
 
-## Assertions
+## Conventions
 
 - Test both success and error paths
 - Verify status codes, response bodies, and side effects
-- For file uploads, use `httpx` multipart support
-
-## Running
-
-```bash
-pytest                  # all tests
-pytest -x               # stop on first failure
-pytest -k "test_create" # filter by name
-pytest --cov=app        # with coverage
-```
+- Use `@pytest.mark.parametrize` for testing multiple inputs (e.g. valid/invalid emails)
+- For file uploads, use `httpx` multipart: `files=[("resume", ("name.pdf", content, "application/pdf"))]`
+- Use helper functions (e.g. `_resume_file()`, `_valid_lead_data()`) to reduce boilerplate

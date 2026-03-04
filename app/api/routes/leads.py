@@ -1,22 +1,34 @@
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.db.session import get_db
-from app.schemas.lead import LeadResponse, LeadStateUpdate
+from app.schemas.lead import LeadCreateForm, LeadResponse, LeadStateUpdate
 from app.services import email_service, file_service, lead_service
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
 
-@router.post("", response_model=LeadResponse, status_code=status.HTTP_201_CREATED)
-async def create_lead(
+async def _parse_lead_form(
     first_name: str = Form(...),
     last_name: str = Form(...),
     email: str = Form(...),
+) -> LeadCreateForm:
+    """Dependency that validates lead form fields via Pydantic."""
+    try:
+        return LeadCreateForm(first_name=first_name, last_name=last_name, email=email)
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors())
+
+
+@router.post("", response_model=LeadResponse, status_code=status.HTTP_201_CREATED)
+async def create_lead(
+    form: LeadCreateForm = Depends(_parse_lead_form),
     resume: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
@@ -25,13 +37,13 @@ async def create_lead(
 
     lead = await lead_service.create_lead(
         db,
-        first_name=first_name,
-        last_name=last_name,
-        email=email,
+        first_name=form.first_name,
+        last_name=form.last_name,
+        email=form.email,
         resume_path=resume_path,
     )
 
-    email_service.notify_new_lead(prospect_email=email, first_name=first_name)
+    email_service.notify_new_lead(prospect_email=form.email, first_name=form.first_name)
     return lead
 
 
