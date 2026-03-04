@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from datetime import datetime, timezone
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -7,8 +8,30 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.db.session import get_db
 from app.main import app
 from app.models.base import Base
+from app.services import file_service
+from app.services.storage import FileInfo
 
 TEST_DB_URL = "sqlite+aiosqlite://"
+
+
+class InMemoryStorageBackend:
+    """Test-only backend that stores files in a dict."""
+
+    def __init__(self) -> None:
+        self._files: dict[str, bytes] = {}
+
+    async def save(self, data: bytes, key: str) -> str:
+        self._files[key] = data
+        return key
+
+    def url(self, key: str) -> str:
+        return f"mem://{key}"
+
+    async def list_files(self) -> list[FileInfo]:
+        return [
+            FileInfo(key=k, size_bytes=len(v), last_modified=datetime.now(timezone.utc))
+            for k, v in self._files.items()
+        ]
 
 
 @pytest_asyncio.fixture
@@ -32,10 +55,12 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield db_session
 
     app.dependency_overrides[get_db] = _override_get_db
+    file_service._backend = InMemoryStorageBackend()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+    file_service._backend = None
 
 
 @pytest_asyncio.fixture

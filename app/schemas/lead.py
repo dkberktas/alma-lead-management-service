@@ -36,3 +36,9 @@ class LeadResponse(BaseModel):
 
 class LeadStateUpdate(BaseModel):
     state: LeadState
+
+
+class FileInfoResponse(BaseModel):
+    key: str
+    size_bytes: int
+    last_modified: datetime

@@ -2,6 +2,8 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    environment: str = "development"  # "development", "staging", "production"
+
     database_url: str = "postgresql+asyncpg://alma:alma_dev_password@localhost:5432/alma_leads"
     secret_key: str = "local-dev-secret-key-not-for-production"
     access_token_expire_minutes: int = 60
@@ -13,10 +15,8 @@ class Settings(BaseSettings):
     email_from: str = "noreply@alma.com"
     attorney_email: str = "attorney@alma.com"
 
-    upload_dir: str = "uploads"
     max_upload_size_mb: int = 10
 
-    storage_backend: str = "local"  # "local" or "s3"
     s3_bucket: str = ""
     s3_prefix: str = "resumes"
     s3_region: str = ""

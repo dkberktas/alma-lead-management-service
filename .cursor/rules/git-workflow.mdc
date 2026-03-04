@@ -10,6 +10,8 @@ alwaysApply: true
 - Use conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`
 - Keep subject line under 72 characters
 - Use imperative mood: "add lead endpoint" not "added lead endpoint"
+- Never mention "Cursor", "AI", "copilot", or any IDE/tool in commit messages or trailers
+- Do not add `Made-with`, `Generated-by`, or similar trailers
 
 ## What to Commit
 

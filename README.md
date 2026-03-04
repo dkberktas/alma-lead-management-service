@@ -107,6 +107,7 @@ An end-to-end script that creates attorneys, submits leads, and verifies the ful
 | `GET` | `/api/admin/users` | List all users (admins + attorneys) |
 | `GET` | `/api/admin/users/{id}` | Get a single user |
 | `DELETE` | `/api/admin/users/{id}` | Delete a user (cannot delete self) |
+| `GET` | `/api/admin/files` | List all uploaded files (from S3) |
 
 ## API Usage Examples
 
@@ -187,7 +188,8 @@ app/
 │   ├── auth_service.py
 │   ├── email_service.py
 │   ├── file_service.py
-│   └── lead_service.py
+│   ├── lead_service.py
+│   └── storage.py     # S3 storage backend
 └── main.py            # App entry point
 tests/                 # pytest test suite
 scripts/               # Utility scripts (smoke test)
@@ -208,8 +210,11 @@ All settings are loaded from environment variables (see `.env.example`):
 | `SMTP_USER` / `SMTP_PASSWORD` | — | SMTP credentials |
 | `EMAIL_FROM` | `noreply@alma.com` | Sender address |
 | `ATTORNEY_EMAIL` | `attorney@alma.com` | Notification recipient |
-| `UPLOAD_DIR` | `uploads` | File upload directory |
 | `MAX_UPLOAD_SIZE_MB` | `10` | Max resume file size |
+| `S3_BUCKET` | — | S3 bucket name (required) |
+| `S3_PREFIX` | `resumes` | S3 key prefix for uploaded files |
+| `S3_REGION` | *(empty)* | AWS region (e.g., `us-east-1`) |
+| `S3_ENDPOINT_URL` | *(empty)* | Custom S3 endpoint (for MinIO / LocalStack) |
 | `ADMIN_EMAIL` | *(empty)* | Seed admin email (see [Admin Bootstrap](#admin-bootstrap)) |
 | `ADMIN_PASSWORD` | *(empty)* | Seed admin password |
 
@@ -231,11 +236,27 @@ This is idempotent — safe to leave configured across restarts. Once the admin 
 
 > **Production note:** Use a strong password and rotate it after first login. The seed password is only used for initial account creation.
 
+## File Storage
+
+Resume uploads are stored in S3. Set `S3_BUCKET` and provide AWS credentials via the standard boto3 chain (env vars `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, IAM roles, or `~/.aws/credentials`).
+
+```bash
+S3_BUCKET=my-alma-resumes
+S3_REGION=us-east-1
+```
+
+To use an S3-compatible service (e.g., MinIO), set `S3_ENDPOINT_URL`:
+
+```bash
+S3_ENDPOINT_URL=http://localhost:9000
+```
+
 ## Design Decisions
 
 See `knowledge/` for architecture decision records and open questions:
 
 - [`knowledge/adr-001-database-strategy.md`](knowledge/adr-001-database-strategy.md) — PostgreSQL via Docker
 - [`knowledge/adr-002-admin-role-rbac.md`](knowledge/adr-002-admin-role-rbac.md) — Admin role and RBAC
+- [`knowledge/adr-003-pluggable-storage-backend.md`](knowledge/adr-003-pluggable-storage-backend.md) — S3 storage backend
 - [`knowledge/open-questions.md`](knowledge/open-questions.md) — Ambiguities and working assumptions
 - [`knowledge/assignment.md`](knowledge/assignment.md) — Original requirements

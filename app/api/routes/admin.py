@@ -7,7 +7,8 @@ from app.core.dependencies import require_admin
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import CreateAttorneyRequest, UserResponse
-from app.services import auth_service
+from app.schemas.lead import FileInfoResponse
+from app.services import auth_service, file_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -50,3 +51,11 @@ async def delete_user(
 ):
     """Admin-only: delete a user. Admins cannot delete themselves."""
     await auth_service.delete_user(db, user_id, requesting_user=admin)
+
+
+@router.get("/files", response_model=list[FileInfoResponse])
+async def list_files(
+    admin: User = Depends(require_admin),
+):
+    """Admin-only: list all uploaded files from the configured storage backend."""
+    return await file_service.list_files()

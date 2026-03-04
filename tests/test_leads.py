@@ -209,6 +209,19 @@ async def test_create_lead_invalid_file_type(client: AsyncClient):
     assert "not allowed" in resp.json()["detail"]
 
 
+@pytest.mark.asyncio
+async def test_create_lead_file_too_large(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr("app.services.file_service.settings.max_upload_size_mb", 1)
+    oversized = b"%PDF-" + b"x" * (1024 * 1024 + 1)
+    resp = await client.post(
+        "/api/leads",
+        data=_valid_lead_data(),
+        files=[("resume", ("big.pdf", oversized, "application/pdf"))],
+    )
+    assert resp.status_code == 413
+    assert "too large" in resp.json()["detail"].lower()
+
+
 # ---------------------------------------------------------------------------
 # Auth-gated endpoints
 # ---------------------------------------------------------------------------

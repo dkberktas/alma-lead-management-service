@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Alma Lead Management",
-    "description": "API collection for the Alma Lead Management Service.\n\n## Setup\n1. Register an admin user (first registered user becomes admin)\n2. Login to get a JWT token — it's auto-saved to the `token` variable\n3. Use authenticated endpoints (leads list, admin, etc.)\n\n## Variables\n- `base_url` — defaults to `http://localhost:8000`\n- `token` — set automatically after login/register",
+    "description": "API collection for the Alma Lead Management Service.\n\n## Setup\n1. Register an admin user (first registered user becomes admin)\n2. Login to get a JWT token — it's auto-saved to the `token` variable\n3. Use authenticated endpoints (leads list, admin, etc.)\n\n## Storage Backend Testing\nThe app supports `local` (disk) and `s3` storage backends. Use the **Storage** folder to verify uploads work with each backend. Set `STORAGE_BACKEND=s3` and `S3_BUCKET=alma-resumes-dev` in your `.env` to test S3.\n\n## Variables\n- `base_url` — defaults to `http://localhost:8000`\n- `token` — set automatically after login/register",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -22,6 +22,11 @@
     },
     {
       "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "resume_path",
       "value": "",
       "type": "string"
     }
@@ -145,8 +150,13 @@
                   "if (pm.response.code === 201) {",
                   "    var json = pm.response.json();",
                   "    pm.collectionVariables.set('lead_id', json.id);",
+                  "    pm.collectionVariables.set('resume_path', json.resume_path);",
                   "    pm.test('Lead ID saved to collection variable', function () {",
                   "        pm.expect(json.id).to.be.a('string');",
+                  "    });",
+                  "    pm.test('Resume path is present', function () {",
+                  "        pm.expect(json.resume_path).to.be.a('string');",
+                  "        pm.expect(json.resume_path).to.have.length.above(0);",
                   "    });",
                   "}"
                 ]
@@ -396,6 +406,262 @@
                 }
               ]
             }
+          },
+          "response": []
+        },
+        {
+          "name": "List Files",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "if (json.length > 0) {",
+                  "    pm.test('File objects have expected fields', function () {",
+                  "        var f = json[0];",
+                  "        pm.expect(f).to.have.property('key');",
+                  "        pm.expect(f).to.have.property('size_bytes');",
+                  "        pm.expect(f).to.have.property('last_modified');",
+                  "        pm.expect(f.size_bytes).to.be.above(0);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/files",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "files"]
+            },
+            "description": "Admin-only: list all uploaded files from the configured storage backend (local disk or S3). Returns file key, size, and last modified timestamp.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Storage",
+      "item": [
+        {
+          "name": "Create Lead — Verify Local Storage",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.test('Resume stored on local disk', function () {",
+                  "        pm.expect(json.resume_path).to.be.a('string');",
+                  "        pm.expect(json.resume_path).to.match(/uploads[/\\\\]/);",
+                  "        pm.expect(json.resume_path).to.match(/\\.pdf$/);",
+                  "    });",
+                  "    pm.test('Lead has PENDING state', function () {",
+                  "        pm.expect(json.state).to.eql('PENDING');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "first_name",
+                  "value": "Local",
+                  "type": "text"
+                },
+                {
+                  "key": "last_name",
+                  "value": "Storage",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "local-test@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "resume",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select a PDF or DOCX file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/leads",
+              "host": ["{{base_url}}"],
+              "path": ["api", "leads"]
+            },
+            "description": "Submit a lead and verify the resume was stored on local disk (STORAGE_BACKEND=local). Expects `resume_path` to start with `uploads/`."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Lead — Verify S3 Storage",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.test('Resume stored in S3 (key has resumes/ prefix)', function () {",
+                  "        pm.expect(json.resume_path).to.be.a('string');",
+                  "        pm.expect(json.resume_path).to.match(/^resumes\\//);",
+                  "    });",
+                  "    pm.test('S3 key ends with file extension', function () {",
+                  "        pm.expect(json.resume_path).to.match(/\\.(pdf|docx)$/);",
+                  "    });",
+                  "    pm.test('S3 key contains UUID', function () {",
+                  "        pm.expect(json.resume_path).to.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);",
+                  "    });",
+                  "    pm.test('Lead has PENDING state', function () {",
+                  "        pm.expect(json.state).to.eql('PENDING');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "first_name",
+                  "value": "S3",
+                  "type": "text"
+                },
+                {
+                  "key": "last_name",
+                  "value": "Storage",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "s3-test@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "resume",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select a PDF or DOCX file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/leads",
+              "host": ["{{base_url}}"],
+              "path": ["api", "leads"]
+            },
+            "description": "Submit a lead and verify the resume was stored in S3 (STORAGE_BACKEND=s3). Expects `resume_path` to be an S3 key like `resumes/<uuid>.pdf`. Make sure the server is running with STORAGE_BACKEND=s3 and S3_BUCKET set."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Lead — Invalid File Type",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error mentions file type', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.detail).to.include('not allowed');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "first_name",
+                  "value": "Bad",
+                  "type": "text"
+                },
+                {
+                  "key": "last_name",
+                  "value": "File",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "badfile@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "resume",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select a NON-PDF/DOCX file (e.g. .txt, .jpg) to test rejection"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/leads",
+              "host": ["{{base_url}}"],
+              "path": ["api", "leads"]
+            },
+            "description": "Negative test — upload an invalid file type. Should return 400 with 'not allowed' error regardless of storage backend."
           },
           "response": []
         }

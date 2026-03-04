@@ -46,4 +46,4 @@ knowledge/        # Project context docs (read before working)
 - Use `Depends()` for dependency injection (db sessions, auth)
 - Return Pydantic response models from all endpoints
 - Lead states: `PENDING` → `REACHED_OUT` (one-way transition)
-- File uploads stored on disk under `uploads/` with UUID filenames
+- File uploads stored in S3 with UUID filenames

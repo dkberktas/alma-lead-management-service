@@ -114,6 +114,45 @@ async def test_unauthenticated_cannot_access_admin(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_admin_list_files_empty(client: AsyncClient, admin_token: str):
+    resp = await client.get(
+        "/api/admin/files",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_admin_list_files_after_upload(client: AsyncClient, admin_token: str):
+    await client.post(
+        "/api/leads",
+        data={"first_name": "File", "last_name": "Test", "email": "file@test.com"},
+        files=[("resume", ("test.pdf", b"%PDF-fake-content", "application/pdf"))],
+    )
+    resp = await client.get(
+        "/api/admin/files",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    files = resp.json()
+    assert len(files) >= 1
+    f = files[0]
+    assert "key" in f
+    assert f["size_bytes"] > 0
+    assert "last_modified" in f
+
+
+@pytest.mark.asyncio
+async def test_attorney_cannot_list_files(client: AsyncClient, auth_token: str):
+    resp = await client.get(
+        "/api/admin/files",
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_first_user_is_admin(client: AsyncClient):
     resp = await client.post(
         "/api/auth/register",
