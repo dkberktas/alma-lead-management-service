@@ -49,6 +49,16 @@ async def list_users(db: AsyncSession) -> list[User]:
     return list(result.scalars().all())
 
 
+async def list_active_attorney_emails(db: AsyncSession) -> list[str]:
+    result = await db.execute(
+        select(User.email).where(
+            User.role == UserRole.ATTORNEY,
+            User.is_active == True,  # noqa: E712
+        )
+    )
+    return list(result.scalars().all())
+
+
 async def get_user(db: AsyncSession, user_id: uuid.UUID) -> User:
     user = await db.get(User, user_id)
     if user is None:

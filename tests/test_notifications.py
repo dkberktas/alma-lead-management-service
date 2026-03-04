@@ -15,9 +15,43 @@ from tests.conftest import InMemoryChannel
 
 
 @pytest.mark.asyncio
-async def test_notify_new_lead_sends_two_messages(monkeypatch):
+async def test_notify_new_lead_sends_to_all_attorneys(monkeypatch):
     channel = InMemoryChannel()
     monkeypatch.setattr("app.services.notification_service._channels", [channel])
+
+    attorney_emails = ["atty1@alma.com", "atty2@alma.com", "atty3@alma.com"]
+
+    await notify_new_lead(
+        prospect_email="jane@example.com",
+        first_name="Jane",
+        last_name="Doe",
+        resume_filename="jane_resume.pdf",
+        attorney_emails=attorney_emails,
+    )
+
+    # 1 prospect email + 3 attorney emails
+    assert len(channel.sent) == 4
+
+    prospect_msg = channel.sent[0]
+    assert prospect_msg.to == "jane@example.com"
+    assert "received your application" in prospect_msg.subject.lower()
+    assert "Jane" in prospect_msg.body
+
+    for i, email in enumerate(attorney_emails):
+        attorney_msg = channel.sent[i + 1]
+        assert attorney_msg.to == email
+        assert "jane@example.com" in attorney_msg.body
+        assert "Jane" in attorney_msg.subject
+        assert "Doe" in attorney_msg.subject
+        assert "jane_resume.pdf" in attorney_msg.body
+
+
+@pytest.mark.asyncio
+async def test_notify_new_lead_falls_back_to_config(monkeypatch):
+    """When no attorney_emails are provided, falls back to settings.attorney_email."""
+    channel = InMemoryChannel()
+    monkeypatch.setattr("app.services.notification_service._channels", [channel])
+    monkeypatch.setattr("app.services.notification_service.settings.attorney_email", "fallback@alma.com")
 
     await notify_new_lead(
         prospect_email="jane@example.com",
@@ -27,17 +61,7 @@ async def test_notify_new_lead_sends_two_messages(monkeypatch):
     )
 
     assert len(channel.sent) == 2
-
-    prospect_msg = channel.sent[0]
-    assert prospect_msg.to == "jane@example.com"
-    assert "received your application" in prospect_msg.subject.lower()
-    assert "Jane" in prospect_msg.body
-
-    attorney_msg = channel.sent[1]
-    assert "jane@example.com" in attorney_msg.body
-    assert "Jane" in attorney_msg.subject
-    assert "Doe" in attorney_msg.subject
-    assert "jane_resume.pdf" in attorney_msg.body
+    assert channel.sent[1].to == "fallback@alma.com"
 
 
 # ---------------------------------------------------------------------------

@@ -38,6 +38,7 @@ async def notify_new_lead(
     first_name: str,
     last_name: str,
     resume_filename: str,
+    attorney_emails: list[str] | None = None,
 ) -> None:
     channels = _get_channels()
 
@@ -55,17 +56,19 @@ async def notify_new_lead(
         ),
     )
 
-    await _dispatch(
-        channels,
-        Message(
-            to=settings.attorney_email,
-            subject=f"New lead submitted: {first_name} {last_name}",
-            body=(
-                f"A new lead has been submitted.\n\n"
-                f"  Name:   {first_name} {last_name}\n"
-                f"  Email:  {prospect_email}\n"
-                f"  Resume: {resume_filename}\n\n"
-                "Please review it in the dashboard."
+    recipients = attorney_emails if attorney_emails else [settings.attorney_email]
+    for email in recipients:
+        await _dispatch(
+            channels,
+            Message(
+                to=email,
+                subject=f"New lead submitted: {first_name} {last_name}",
+                body=(
+                    f"A new lead has been submitted.\n\n"
+                    f"  Name:   {first_name} {last_name}\n"
+                    f"  Email:  {prospect_email}\n"
+                    f"  Resume: {resume_filename}\n\n"
+                    "Please review it in the dashboard."
+                ),
             ),
-        ),
-    )
+        )

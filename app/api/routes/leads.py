@@ -1,15 +1,17 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.dependencies import get_current_user
+from app.core.rate_limit import limiter
 from app.models.user import User
 from app.db.session import get_db
 from app.schemas.lead import AuditLogResponse, LeadCreateForm, LeadResponse, LeadStateUpdate
-from app.services import audit_service, file_service, lead_service, notification_service
+from app.services import audit_service, auth_service, file_service, lead_service, notification_service
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -27,7 +29,9 @@ async def _parse_lead_form(
 
 
 @router.post("", response_model=LeadResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute;{settings.rate_limit_per_hour}/hour")
 async def create_lead(
+    request: Request,
     background_tasks: BackgroundTasks,
     form: LeadCreateForm = Depends(_parse_lead_form),
     resume: UploadFile = File(...),
@@ -44,12 +48,23 @@ async def create_lead(
         resume_path=resume_path,
     )
 
+    attorney_emails = await auth_service.list_active_attorney_emails(db)
+
     background_tasks.add_task(
         notification_service.notify_new_lead,
         prospect_email=form.email,
         first_name=form.first_name,
         last_name=form.last_name,
         resume_filename=resume.filename or "unknown",
+        attorney_emails=attorney_emails,
+    )
+    background_tasks.add_task(
+        audit_service.record_action,
+        entity_type="lead",
+        entity_id=lead.id,
+        action="lead_created",
+        lead_id=lead.id,
+        detail=f"Lead submitted by {form.first_name} {form.last_name} ({form.email})",
     )
     return lead
 
