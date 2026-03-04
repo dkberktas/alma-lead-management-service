@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import admin, auth, leads
-from app.db.seed import seed_admin
+from app.db.seed import seed_admin, seed_attorney
 from app.db.session import async_session_factory, engine
 from app.models.base import Base
 import app.models  # noqa: F401 — register all models with Base.metadata
@@ -20,6 +20,7 @@ async def lifespan(_app: FastAPI):
 
     async with async_session_factory() as session:
         await seed_admin(session)
+        await seed_attorney(session)
 
     yield
 

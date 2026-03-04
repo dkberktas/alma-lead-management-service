@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     admin_email: str = ""
     admin_password: str = ""
 
+    seed_attorney_email: str = ""
+    seed_attorney_password: str = ""
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
