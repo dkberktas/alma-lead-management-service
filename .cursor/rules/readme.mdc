@@ -1,0 +1,26 @@
+---
+description: Keep README.md in sync with project changes
+alwaysApply: true
+---
+
+# README Maintenance
+
+The `README.md` is the primary entry point for reviewers and new contributors.
+
+## When to Update
+
+Update `README.md` whenever you:
+- Add, remove, or rename an API endpoint
+- Add or change environment variables / configuration
+- Change how to run the app locally (new dependencies, Docker changes, etc.)
+- Add new scripts to `scripts/`
+- Change the project directory structure
+- Add new knowledge/ADR files (update the links at the bottom)
+
+## What to Keep Current
+
+- **API Endpoints table** — must match actual routes in `app/api/routes/`
+- **Configuration table** — must match `app/core/config.py` and `.env.example`
+- **Project Structure tree** — must reflect actual directory layout
+- **Quick Start / Running instructions** — must actually work
+- **Usage Examples** — must use correct endpoints and payloads

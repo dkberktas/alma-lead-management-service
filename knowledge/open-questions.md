@@ -60,9 +60,9 @@ Questions and ambiguities identified during initial analysis of the assignment. 
 | 3 | A lead is a generic prospect, not tied to a job posting |
 | 4 | No optional fields beyond the four required ones for now |
 | 5 | Single-tenant (Alma only) |
-| 6 | Low scale — SQLite for dev, design service layer to be DB-agnostic |
+| 6 | PostgreSQL via Docker for dev parity; SQLite in-memory for tests (see ADR-001) |
 | 7 | Multiple attorney accounts with individual credentials |
 | 8 | Shared pool — all attorneys see all leads |
-| 9 | Single role for now (attorney); admin/recruiter deferred |
+| 9 | Two roles: ADMIN and ATTORNEY. First user is admin. See ADR-002 |
 | 10 | No-reply emails only |
 | 11 | PDF and DOCX accepted, max 10 MB |

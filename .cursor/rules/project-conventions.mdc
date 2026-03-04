@@ -19,7 +19,7 @@ Always consult these files when making architectural decisions or when unsure ab
 
 - **Framework**: FastAPI (Python 3.11+)
 - **ORM**: SQLAlchemy 2.0 with async support
-- **Database**: SQLite (dev), PostgreSQL-ready via config
+- **Database**: PostgreSQL 16 via Docker (dev + prod), SQLite in-memory (tests)
 - **Auth**: JWT bearer tokens for internal endpoints
 - **Validation**: Pydantic v2
 
