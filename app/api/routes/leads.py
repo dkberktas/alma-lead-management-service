@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.db.session import get_db
-from app.schemas.lead import LeadCreateForm, LeadResponse, LeadStateUpdate, ResumeUrlResponse
-from app.services import email_service, file_service, lead_service
+from app.schemas.lead import AuditLogResponse, LeadCreateForm, LeadResponse, LeadStateUpdate
+from app.services import audit_service, file_service, lead_service, notification_service
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -28,6 +28,7 @@ async def _parse_lead_form(
 
 @router.post("", response_model=LeadResponse, status_code=status.HTTP_201_CREATED)
 async def create_lead(
+    background_tasks: BackgroundTasks,
     form: LeadCreateForm = Depends(_parse_lead_form),
     resume: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
@@ -43,7 +44,13 @@ async def create_lead(
         resume_path=resume_path,
     )
 
-    email_service.notify_new_lead(prospect_email=form.email, first_name=form.first_name)
+    background_tasks.add_task(
+        notification_service.notify_new_lead,
+        prospect_email=form.email,
+        first_name=form.first_name,
+        last_name=form.last_name,
+        resume_filename=resume.filename or "unknown",
+    )
     return lead
 
 
@@ -70,20 +77,46 @@ async def get_lead(
 async def update_lead_state(
     lead_id: uuid.UUID,
     body: LeadStateUpdate,
-    _user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Internal endpoint — attorney marks a lead as REACHED_OUT."""
-    return await lead_service.update_lead_state(db, lead_id, body.state)
+    lead = await lead_service.get_lead(db, lead_id)
+    old_state = lead.state.value
+
+    updated_lead = await lead_service.update_lead_state(db, lead_id, body.state)
+
+    background_tasks.add_task(
+        audit_service.record_state_change,
+        lead_id=lead_id,
+        user_id=user.id,
+        user_email=user.email,
+        old_state=old_state,
+        new_state=body.state.value,
+    )
+
+    return updated_lead
 
 
-@router.get("/{lead_id}/resume-url", response_model=ResumeUrlResponse)
+@router.get("/{lead_id}/resume-url")
 async def get_resume_url(
     lead_id: uuid.UUID,
     _user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Internal endpoint — get a short-lived download URL for a lead's resume."""
+    """Internal endpoint — generate a download URL for the lead's resume."""
     lead = await lead_service.get_lead(db, lead_id)
     url = file_service.get_resume_url(lead.resume_path)
-    return ResumeUrlResponse(url=url)
+    return {"url": url}
+
+
+@router.get("/{lead_id}/audit-log", response_model=list[AuditLogResponse])
+async def get_lead_audit_log(
+    lead_id: uuid.UUID,
+    _user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Internal endpoint — view audit trail for a specific lead."""
+    await lead_service.get_lead(db, lead_id)
+    return await audit_service.get_lead_audit_logs(db, lead_id)

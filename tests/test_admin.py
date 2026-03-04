@@ -153,6 +153,141 @@ async def test_attorney_cannot_list_files(client: AsyncClient, auth_token: str):
 
 
 @pytest.mark.asyncio
+async def test_admin_deactivate_attorney(client: AsyncClient, admin_token: str):
+    create_resp = await client.post(
+        "/api/admin/attorneys",
+        json={"email": "deactivate_me@test.com", "password": "pass123"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    user_id = create_resp.json()["id"]
+
+    resp = await client.patch(
+        f"/api/admin/users/{user_id}/deactivate",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["is_active"] is False
+
+    get_resp = await client.get(
+        f"/api/admin/users/{user_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert get_resp.json()["is_active"] is False
+
+
+@pytest.mark.asyncio
+async def test_deactivated_attorney_cannot_login(client: AsyncClient, admin_token: str):
+    await client.post(
+        "/api/admin/attorneys",
+        json={"email": "blocked@test.com", "password": "pass123"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    login_resp = await client.post(
+        "/api/auth/login",
+        json={"email": "blocked@test.com", "password": "pass123"},
+    )
+    assert login_resp.status_code == 200
+
+    users_resp = await client.get(
+        "/api/admin/users",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    blocked_user = next(u for u in users_resp.json() if u["email"] == "blocked@test.com")
+
+    await client.patch(
+        f"/api/admin/users/{blocked_user['id']}/deactivate",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    login_resp = await client.post(
+        "/api/auth/login",
+        json={"email": "blocked@test.com", "password": "pass123"},
+    )
+    assert login_resp.status_code == 403
+    assert "deactivated" in login_resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_admin_reactivate_attorney(client: AsyncClient, admin_token: str):
+    create_resp = await client.post(
+        "/api/admin/attorneys",
+        json={"email": "reactivate_me@test.com", "password": "pass123"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    user_id = create_resp.json()["id"]
+
+    await client.patch(
+        f"/api/admin/users/{user_id}/deactivate",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    resp = await client.patch(
+        f"/api/admin/users/{user_id}/reactivate",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is True
+
+    login_resp = await client.post(
+        "/api/auth/login",
+        json={"email": "reactivate_me@test.com", "password": "pass123"},
+    )
+    assert login_resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_admin_cannot_deactivate_self(client: AsyncClient, admin_token: str):
+    users_resp = await client.get(
+        "/api/admin/users",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    admin_user = next(u for u in users_resp.json() if u["role"] == "ADMIN")
+
+    resp = await client.patch(
+        f"/api/admin/users/{admin_user['id']}/deactivate",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 400
+    assert "Cannot deactivate your own account" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_deactivated_user_token_rejected(client: AsyncClient, admin_token: str):
+    create_resp = await client.post(
+        "/api/admin/attorneys",
+        json={"email": "token_test@test.com", "password": "pass123"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    user_id = create_resp.json()["id"]
+
+    login_resp = await client.post(
+        "/api/auth/login",
+        json={"email": "token_test@test.com", "password": "pass123"},
+    )
+    attorney_token = login_resp.json()["access_token"]
+
+    leads_resp = await client.get(
+        "/api/leads",
+        headers={"Authorization": f"Bearer {attorney_token}"},
+    )
+    assert leads_resp.status_code == 200
+
+    await client.patch(
+        f"/api/admin/users/{user_id}/deactivate",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    leads_resp = await client.get(
+        "/api/leads",
+        headers={"Authorization": f"Bearer {attorney_token}"},
+    )
+    assert leads_resp.status_code == 403
+    assert "deactivated" in leads_resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
 async def test_first_user_is_admin(client: AsyncClient):
     resp = await client.post(
         "/api/auth/register",

@@ -35,6 +35,12 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> str:
             detail="Invalid email or password",
         )
 
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account has been deactivated",
+        )
+
     return create_access_token(subject=str(user.id), role=user.role.value)
 
 
@@ -50,7 +56,52 @@ async def get_user(db: AsyncSession, user_id: uuid.UUID) -> User:
     return user
 
 
+async def deactivate_user(db: AsyncSession, user_id: uuid.UUID, requesting_user: User) -> User:
+    """Soft-delete: set is_active=False. Prevents future login."""
+    user = await get_user(db, user_id)
+
+    if user.id == requesting_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot deactivate your own account",
+        )
+
+    if user.role == UserRole.ADMIN and requesting_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can deactivate admin accounts",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is already deactivated",
+        )
+
+    user.is_active = False
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def reactivate_user(db: AsyncSession, user_id: uuid.UUID) -> User:
+    """Re-enable a soft-deleted user account."""
+    user = await get_user(db, user_id)
+
+    if user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is already active",
+        )
+
+    user.is_active = True
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 async def delete_user(db: AsyncSession, user_id: uuid.UUID, requesting_user: User) -> None:
+    """Hard delete — prefer deactivate_user for soft delete."""
     user = await get_user(db, user_id)
 
     if user.id == requesting_user.id:

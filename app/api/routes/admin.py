@@ -43,13 +43,33 @@ async def get_user(
     return await auth_service.get_user(db, user_id)
 
 
+@router.patch("/users/{user_id}/deactivate", response_model=UserResponse)
+async def deactivate_user(
+    user_id: uuid.UUID,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin-only: soft-delete a user. Login will no longer work for them."""
+    return await auth_service.deactivate_user(db, user_id, requesting_user=admin)
+
+
+@router.patch("/users/{user_id}/reactivate", response_model=UserResponse)
+async def reactivate_user(
+    user_id: uuid.UUID,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin-only: re-enable a previously deactivated user account."""
+    return await auth_service.reactivate_user(db, user_id)
+
+
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Admin-only: delete a user. Admins cannot delete themselves."""
+    """Admin-only: permanently delete a user. Prefer deactivate for soft delete."""
     await auth_service.delete_user(db, user_id, requesting_user=admin)
 
 

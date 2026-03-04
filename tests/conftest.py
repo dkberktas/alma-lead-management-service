@@ -8,10 +8,21 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.db.session import get_db
 from app.main import app
 from app.models.base import Base
-from app.services import file_service
+from app.services import file_service, notification_service
+from app.services.channels.base import Message, NotificationChannel
 from app.services.storage import FileInfo
 
 TEST_DB_URL = "sqlite+aiosqlite://"
+
+
+class InMemoryChannel(NotificationChannel):
+    """Test-only channel that collects sent messages in a list."""
+
+    def __init__(self) -> None:
+        self.sent: list[Message] = []
+
+    async def send(self, message: Message) -> None:
+        self.sent.append(message)
 
 
 class InMemoryStorageBackend:
@@ -56,11 +67,13 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
     app.dependency_overrides[get_db] = _override_get_db
     file_service._backend = InMemoryStorageBackend()
+    notification_service._channels = [InMemoryChannel()]
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
     file_service._backend = None
+    notification_service._channels = None
 
 
 @pytest_asyncio.fixture

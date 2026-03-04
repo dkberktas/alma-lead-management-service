@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field, computed_field, field_validator
 
-from app.models.lead import LeadState
+from app.models.lead import LeadState  # noqa: TC002
 
 
 class LeadCreateForm(BaseModel):
@@ -45,6 +45,20 @@ class LeadStateUpdate(BaseModel):
 
 class ResumeUrlResponse(BaseModel):
     url: str
+
+
+class AuditLogResponse(BaseModel):
+    id: uuid.UUID
+    lead_id: uuid.UUID
+    user_id: uuid.UUID
+    user_email: str
+    action: str
+    old_state: str
+    new_state: str
+    detail: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class FileInfoResponse(BaseModel):

@@ -9,9 +9,7 @@ from starlette.responses import JSONResponse
 from app.api.routes import admin, auth, leads
 from app.core.config import settings
 from app.db.seed import seed_admin, seed_attorney
-from app.db.session import async_session_factory, engine
-from app.models.base import Base
-import app.models  # noqa: F401 — register all models with Base.metadata
+from app.db.session import async_session_factory
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,9 +18,6 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     logger.info("environment=%s", settings.environment)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
     async with async_session_factory() as session:
         await seed_admin(session)

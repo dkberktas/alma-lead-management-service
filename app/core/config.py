@@ -8,10 +8,12 @@ class Settings(BaseSettings):
     secret_key: str = "local-dev-secret-key-not-for-production"
     access_token_expire_minutes: int = 60
 
-    smtp_host: str = ""
+    resend_api_key: str = ""  # set to enable email via Resend
+    smtp_host: str = ""  # set to enable email via SMTP (e.g. smtp.gmail.com)
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
+    smtp_use_tls: bool = True
     email_from: str = "noreply@alma.com"
     attorney_email: str = "attorney@alma.com"
 
