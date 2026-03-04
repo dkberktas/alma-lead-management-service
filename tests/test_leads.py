@@ -213,6 +213,32 @@ async def test_create_lead_invalid_file_type(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_create_lead_spoofed_content_type(client: AsyncClient):
+    """Arbitrary content with a spoofed application/pdf Content-Type is rejected."""
+    resp = await client.post(
+        "/api/leads",
+        data=_valid_lead_data(),
+        files=[("resume", ("evil.pdf", b"MZ\x90executable-payload", "application/pdf"))],
+    )
+    assert resp.status_code == 400
+    assert "does not match" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_create_lead_spoofed_docx_content_type(client: AsyncClient):
+    """Non-ZIP content with a spoofed DOCX Content-Type is rejected."""
+    resp = await client.post(
+        "/api/leads",
+        data=_valid_lead_data(),
+        files=[
+            ("resume", ("evil.docx", b"not-a-zip-file", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")),
+        ],
+    )
+    assert resp.status_code == 400
+    assert "does not match" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_create_lead_file_too_large(client: AsyncClient, monkeypatch):
     monkeypatch.setattr("app.services.file_service.settings.max_upload_size_mb", 1)
     oversized = b"%PDF-" + b"x" * (1024 * 1024 + 1)
@@ -248,7 +274,54 @@ async def test_list_leads(client: AsyncClient, auth_token: str):
         headers={"Authorization": f"Bearer {auth_token}"},
     )
     assert resp.status_code == 200
-    assert len(resp.json()) >= 1
+    body = resp.json()
+    assert "items" in body
+    assert "total" in body
+    assert "limit" in body
+    assert "offset" in body
+    assert len(body["items"]) >= 1
+    assert body["total"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_list_leads_pagination(client: AsyncClient, auth_token: str):
+    """Verify limit/offset query params control the result window."""
+    for i in range(3):
+        await client.post(
+            "/api/leads",
+            data=_valid_lead_data(email=f"page{i}@test.com"),
+            files=[_resume_file()],
+        )
+    headers = {"Authorization": f"Bearer {auth_token}"}
+
+    resp = await client.get("/api/leads", params={"limit": 2, "offset": 0}, headers=headers)
+    body = resp.json()
+    assert resp.status_code == 200
+    assert len(body["items"]) == 2
+    assert body["limit"] == 2
+    assert body["offset"] == 0
+    assert body["total"] >= 3
+
+    resp2 = await client.get("/api/leads", params={"limit": 2, "offset": 2}, headers=headers)
+    body2 = resp2.json()
+    assert resp2.status_code == 200
+    assert len(body2["items"]) >= 1
+    assert body2["offset"] == 2
+
+
+@pytest.mark.asyncio
+async def test_list_leads_pagination_validation(client: AsyncClient, auth_token: str):
+    """Invalid limit/offset values return 422, not silently clamped."""
+    headers = {"Authorization": f"Bearer {auth_token}"}
+
+    resp = await client.get("/api/leads", params={"limit": 0}, headers=headers)
+    assert resp.status_code == 422
+
+    resp = await client.get("/api/leads", params={"limit": 300}, headers=headers)
+    assert resp.status_code == 422
+
+    resp = await client.get("/api/leads", params={"offset": -1}, headers=headers)
+    assert resp.status_code == 422
 
 
 @pytest.mark.asyncio
