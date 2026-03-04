@@ -13,7 +13,7 @@ target_metadata = Base.metadata
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode — emit SQL to stdout."""
     context.configure(
-        url=settings.database_url,
+        url=settings.database_admin_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -30,7 +30,7 @@ def do_run_migrations(connection):
 
 async def run_migrations_online() -> None:
     """Run migrations in 'online' mode — connect via async engine."""
-    connectable = create_async_engine(settings.database_url)
+    connectable = create_async_engine(settings.database_admin_url)
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

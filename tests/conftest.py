@@ -95,20 +95,26 @@ async def client(db_session: AsyncSession, test_engine: AsyncEngine) -> AsyncGen
 
 
 @pytest_asyncio.fixture
-async def admin_token(client: AsyncClient) -> str:
-    """First registered user becomes admin."""
-    resp = await client.post(
-        "/api/auth/register",
-        json={"email": "admin@test.com", "password": "adminpass123"},
+async def admin_token(client: AsyncClient, db_session: AsyncSession) -> str:
+    """Create an admin user directly and return a JWT."""
+    from app.core.security import create_access_token
+    from app.models.user import UserRole
+    from app.services import auth_service
+
+    user = await auth_service.register_user(
+        db_session, email="admin@test.com", password="adminpass123", role=UserRole.ADMIN
     )
-    return resp.json()["access_token"]
+    return create_access_token(subject=str(user.id), role=user.role.value)
 
 
 @pytest_asyncio.fixture
-async def auth_token(client: AsyncClient, admin_token: str) -> str:
-    """Second registered user is an attorney."""
-    resp = await client.post(
-        "/api/auth/register",
-        json={"email": "attorney@test.com", "password": "testpass123"},
+async def auth_token(client: AsyncClient, db_session: AsyncSession, admin_token: str) -> str:
+    """Create an attorney user directly and return a JWT."""
+    from app.core.security import create_access_token
+    from app.models.user import UserRole
+    from app.services import auth_service
+
+    user = await auth_service.register_user(
+        db_session, email="attorney@test.com", password="testpass123", role=UserRole.ATTORNEY
     )
-    return resp.json()["access_token"]
+    return create_access_token(subject=str(user.id), role=user.role.value)

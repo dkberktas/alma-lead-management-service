@@ -1,20 +1,39 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, Request, UploadFile, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_admin
 from app.core.rate_limit import limiter
 from app.models.user import User
-from app.db.session import get_db
+from app.db.session import admin_session_factory, get_db
 from app.models.lead import LeadState
 from app.schemas.lead import AuditLogResponse, LeadCreateForm, LeadListResponse, LeadResponse, LeadStateUpdate
 from app.services import audit_service, auth_service, file_service, lead_service, notification_service
 
 router = APIRouter(prefix="/leads", tags=["leads"])
+
+
+async def _notify_new_lead(
+    prospect_email: str,
+    first_name: str,
+    last_name: str,
+    resume_filename: str,
+) -> None:
+    """Background task: fetch attorney emails via admin session (bypasses RLS),
+    then dispatch notifications."""
+    async with admin_session_factory() as session:
+        attorney_emails = await auth_service.list_active_attorney_emails(session)
+    await notification_service.notify_new_lead(
+        prospect_email=prospect_email,
+        first_name=first_name,
+        last_name=last_name,
+        resume_filename=resume_filename,
+        attorney_emails=attorney_emails,
+    )
 
 
 async def _parse_lead_form(
@@ -49,15 +68,12 @@ async def create_lead(
         resume_path=resume_path,
     )
 
-    attorney_emails = await auth_service.list_active_attorney_emails(db)
-
     background_tasks.add_task(
-        notification_service.notify_new_lead,
+        _notify_new_lead,
         prospect_email=form.email,
         first_name=form.first_name,
         last_name=form.last_name,
         resume_filename=resume.filename or "unknown",
-        attorney_emails=attorney_emails,
     )
     background_tasks.add_task(
         audit_service.record_action,
@@ -72,15 +88,13 @@ async def create_lead(
 
 @router.get("", response_model=LeadListResponse)
 async def list_leads(
-    state: LeadState | None = None,
-    limit: int = 50,
-    offset: int = 0,
+    state: LeadState | None = Query(None, description="Filter by lead state"),
+    limit: int = Query(50, ge=1, le=200, description="Max items per page"),
+    offset: int = Query(0, ge=0, description="Number of items to skip"),
     _user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Internal endpoint — authenticated attorneys view leads with optional state filter."""
-    limit = max(1, min(limit, 200))
-    offset = max(0, offset)
     items, total = await lead_service.list_leads(db, state=state, limit=limit, offset=offset)
     return LeadListResponse(items=items, total=total, limit=limit, offset=offset)
 
@@ -136,9 +150,9 @@ async def get_resume_url(
 @router.get("/{lead_id}/audit-log", response_model=list[AuditLogResponse])
 async def get_lead_audit_log(
     lead_id: uuid.UUID,
-    _user: User = Depends(get_current_user),
+    _admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Internal endpoint — view audit trail for a specific lead."""
+    """Admin-only — view audit trail for a specific lead."""
     await lead_service.get_lead(db, lead_id)
     return await audit_service.get_lead_audit_logs(db, lead_id)

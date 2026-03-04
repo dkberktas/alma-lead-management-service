@@ -2,7 +2,7 @@ import logging
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -14,8 +14,9 @@ from starlette.responses import JSONResponse
 from app.api.routes import admin, auth, leads
 from app.core.config import settings
 from app.core.rate_limit import limiter
+from app.core.security import decode_access_token
 from app.db.seed import seed_admin, seed_attorney
-from app.db.session import async_session_factory, get_db
+from app.db.session import admin_session_factory, async_session_factory, get_db
 from app.services.audit_service import audit_health
 
 logging.basicConfig(level=logging.INFO)
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(_app: FastAPI):
     logger.info("environment=%s", settings.environment)
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await seed_admin(session)
         await seed_attorney(session)
 
@@ -72,6 +73,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def set_rls_context(request: Request, call_next):
+    """Extract user ID from JWT (if present) and store in request state
+    so get_db can forward it to PostgreSQL via SET LOCAL for RLS."""
+    request.state.current_user_id = None
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        try:
+            payload = decode_access_token(auth_header[7:])
+            request.state.current_user_id = payload["sub"]
+        except HTTPException:
+            pass
+    return await call_next(request)
+
 
 _MAX_REQUEST_BYTES = (settings.max_upload_size_mb + 1) * 1024 * 1024
 

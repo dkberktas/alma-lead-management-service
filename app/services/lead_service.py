@@ -25,8 +25,8 @@ async def create_lead(
         resume_path=resume_path,
     )
     db.add(lead)
+    await db.flush()
     await db.commit()
-    await db.refresh(lead)
     return lead
 
 

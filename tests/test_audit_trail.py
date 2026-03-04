@@ -67,7 +67,7 @@ async def test_audit_logs_after_attorney_created(client: AsyncClient, admin_toke
     """Creating an attorney should log an audit entry."""
     await client.post(
         "/api/admin/attorneys",
-        json={"email": "audited_atty@test.com", "password": "pass123"},
+        json={"email": "audited_atty@test.com", "password": "pass1234"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
 
@@ -86,7 +86,7 @@ async def test_audit_logs_after_attorney_created(client: AsyncClient, admin_toke
 async def test_audit_logs_after_user_deactivated(client: AsyncClient, admin_token: str):
     create_resp = await client.post(
         "/api/admin/attorneys",
-        json={"email": "deact_audit@test.com", "password": "pass123"},
+        json={"email": "deact_audit@test.com", "password": "pass1234"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     user_id = create_resp.json()["id"]
@@ -123,7 +123,7 @@ async def test_audit_log_response_shape(client: AsyncClient, admin_token: str):
     """Verify the response schema of audit log items."""
     await client.post(
         "/api/admin/attorneys",
-        json={"email": "shape_test@test.com", "password": "pass123"},
+        json={"email": "shape_test@test.com", "password": "pass1234"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
 

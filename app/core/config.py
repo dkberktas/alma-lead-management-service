@@ -7,7 +7,8 @@ _DEFAULT_SECRET_KEY = "local-dev-secret-key-not-for-production"
 class Settings(BaseSettings):
     environment: str = "development"  # "development", "staging", "production"
 
-    database_url: str = "postgresql+asyncpg://alma:alma_dev_password@localhost:5432/alma_leads"
+    database_url: str = "postgresql+asyncpg://alma_app:alma_app_dev_password@localhost:5432/alma_leads"
+    database_admin_url: str = "postgresql+asyncpg://alma:alma_dev_password@localhost:5432/alma_leads"
     secret_key: str = _DEFAULT_SECRET_KEY
     access_token_expire_minutes: int = 60
 

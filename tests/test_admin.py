@@ -6,7 +6,7 @@ from httpx import AsyncClient
 async def test_admin_create_attorney(client: AsyncClient, admin_token: str):
     resp = await client.post(
         "/api/admin/attorneys",
-        json={"email": "new_attorney@test.com", "password": "pass123"},
+        json={"email": "new_attorney@test.com", "password": "pass1234"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 201
@@ -19,7 +19,7 @@ async def test_admin_create_attorney(client: AsyncClient, admin_token: str):
 async def test_attorney_cannot_create_attorney(client: AsyncClient, auth_token: str):
     resp = await client.post(
         "/api/admin/attorneys",
-        json={"email": "sneaky@test.com", "password": "pass123"},
+        json={"email": "sneaky@test.com", "password": "pass1234"},
         headers={"Authorization": f"Bearer {auth_token}"},
     )
     assert resp.status_code == 403
@@ -52,7 +52,7 @@ async def test_attorney_cannot_list_users(client: AsyncClient, auth_token: str):
 async def test_admin_delete_attorney(client: AsyncClient, admin_token: str):
     create_resp = await client.post(
         "/api/admin/attorneys",
-        json={"email": "deleteme@test.com", "password": "pass123"},
+        json={"email": "deleteme@test.com", "password": "pass1234"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     user_id = create_resp.json()["id"]
@@ -156,7 +156,7 @@ async def test_attorney_cannot_list_files(client: AsyncClient, auth_token: str):
 async def test_admin_deactivate_attorney(client: AsyncClient, admin_token: str):
     create_resp = await client.post(
         "/api/admin/attorneys",
-        json={"email": "deactivate_me@test.com", "password": "pass123"},
+        json={"email": "deactivate_me@test.com", "password": "pass1234"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     user_id = create_resp.json()["id"]
@@ -180,13 +180,13 @@ async def test_admin_deactivate_attorney(client: AsyncClient, admin_token: str):
 async def test_deactivated_attorney_cannot_login(client: AsyncClient, admin_token: str):
     await client.post(
         "/api/admin/attorneys",
-        json={"email": "blocked@test.com", "password": "pass123"},
+        json={"email": "blocked@test.com", "password": "pass1234"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
 
     login_resp = await client.post(
         "/api/auth/login",
-        json={"email": "blocked@test.com", "password": "pass123"},
+        json={"email": "blocked@test.com", "password": "pass1234"},
     )
     assert login_resp.status_code == 200
 
@@ -203,7 +203,7 @@ async def test_deactivated_attorney_cannot_login(client: AsyncClient, admin_toke
 
     login_resp = await client.post(
         "/api/auth/login",
-        json={"email": "blocked@test.com", "password": "pass123"},
+        json={"email": "blocked@test.com", "password": "pass1234"},
     )
     assert login_resp.status_code == 403
     assert "deactivated" in login_resp.json()["detail"].lower()
@@ -213,7 +213,7 @@ async def test_deactivated_attorney_cannot_login(client: AsyncClient, admin_toke
 async def test_admin_reactivate_attorney(client: AsyncClient, admin_token: str):
     create_resp = await client.post(
         "/api/admin/attorneys",
-        json={"email": "reactivate_me@test.com", "password": "pass123"},
+        json={"email": "reactivate_me@test.com", "password": "pass1234"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     user_id = create_resp.json()["id"]
@@ -232,7 +232,7 @@ async def test_admin_reactivate_attorney(client: AsyncClient, admin_token: str):
 
     login_resp = await client.post(
         "/api/auth/login",
-        json={"email": "reactivate_me@test.com", "password": "pass123"},
+        json={"email": "reactivate_me@test.com", "password": "pass1234"},
     )
     assert login_resp.status_code == 200
 
@@ -257,14 +257,14 @@ async def test_admin_cannot_deactivate_self(client: AsyncClient, admin_token: st
 async def test_deactivated_user_token_rejected(client: AsyncClient, admin_token: str):
     create_resp = await client.post(
         "/api/admin/attorneys",
-        json={"email": "token_test@test.com", "password": "pass123"},
+        json={"email": "token_test@test.com", "password": "pass1234"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     user_id = create_resp.json()["id"]
 
     login_resp = await client.post(
         "/api/auth/login",
-        json={"email": "token_test@test.com", "password": "pass123"},
+        json={"email": "token_test@test.com", "password": "pass1234"},
     )
     attorney_token = login_resp.json()["access_token"]
 
@@ -288,18 +288,13 @@ async def test_deactivated_user_token_rejected(client: AsyncClient, admin_token:
 
 
 @pytest.mark.asyncio
-async def test_first_user_is_admin(client: AsyncClient):
-    resp = await client.post(
-        "/api/auth/register",
-        json={"email": "first@test.com", "password": "pass123"},
-    )
-    token = resp.json()["access_token"]
-
-    users_resp = await client.get(
+async def test_admin_seeded_via_fixture(client: AsyncClient, admin_token: str):
+    """Admin is created via DB seed/fixture, not open registration."""
+    resp = await client.get(
         "/api/admin/users",
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert users_resp.status_code == 200
-    users = users_resp.json()
-    first_user = next(u for u in users if u["email"] == "first@test.com")
-    assert first_user["role"] == "ADMIN"
+    assert resp.status_code == 200
+    users = resp.json()
+    admin = next(u for u in users if u["email"] == "admin@test.com")
+    assert admin["role"] == "ADMIN"
