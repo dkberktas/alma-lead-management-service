@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.db.seed import seed_admin, seed_attorney
 from app.db.session import async_session_factory, get_db
+from app.services.audit_service import audit_health
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -93,11 +94,20 @@ app.include_router(admin.router, prefix="/api")
 
 @app.get("/health")
 async def health(db: AsyncSession = Depends(get_db)):
+    audit = audit_health()
     try:
         await db.execute(text("SELECT 1"))
-        return {"status": "ok", "database": "connected"}
+        db_ok = True
     except Exception:
-        return JSONResponse(
-            status_code=503,
-            content={"status": "unhealthy", "database": "disconnected"},
-        )
+        db_ok = False
+
+    healthy = db_ok and audit["healthy"]
+
+    body = {
+        "status": "ok" if healthy else "degraded",
+        "database": "connected" if db_ok else "disconnected",
+        "audit": audit,
+    }
+    if not healthy:
+        return JSONResponse(status_code=503, content=body)
+    return body
