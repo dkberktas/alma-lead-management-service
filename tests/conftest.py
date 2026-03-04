@@ -5,6 +5,8 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from app.api.routes import auth as auth_routes
+from app.api.routes import leads as leads_routes
 from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.main import app
@@ -85,6 +87,11 @@ async def client(db_session: AsyncSession, test_engine: AsyncEngine) -> AsyncGen
     _original_factory = audit_service.async_session_factory
     audit_service.async_session_factory = test_session_factory
 
+    _original_auth_admin = auth_routes.admin_session_factory
+    auth_routes.admin_session_factory = test_session_factory
+    _original_leads_admin = leads_routes.admin_session_factory
+    leads_routes.admin_session_factory = test_session_factory
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
@@ -92,6 +99,8 @@ async def client(db_session: AsyncSession, test_engine: AsyncEngine) -> AsyncGen
     file_service._backend = None
     notification_service._channels = None
     audit_service.async_session_factory = _original_factory
+    auth_routes.admin_session_factory = _original_auth_admin
+    leads_routes.admin_session_factory = _original_leads_admin
 
 
 @pytest_asyncio.fixture

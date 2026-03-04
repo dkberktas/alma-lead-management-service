@@ -15,18 +15,24 @@ TODOs
 - add prod/staging db setup/migration
 - rate limit lead submission - IP based, email based, etc
 - email all attorneys re: new lead submission
+- attorney to claim a lead (already captured part of auidit, maybe make it explicit)
+- sec review
+- remove db superuser 
+- code review
+- spec file
+- final review
+
 
 Next
-- sec review
+- push to github
 
 OOS
+- rate limit in memory only, introduce storage potentially redis
 - move file upload from client to S3, skip lead service
 - optional lead fields
-- attorney to claim a lead (already captured part of auidit, maybe make it explicit)
 - move emailing logic to a queue/or trigger.dev
-- thin fe for hosting lead form
+- thin frontend for hosting lead form
 - S3 cost redcution for local development, look into LocalStack
 - Add more outreach channels (slack, text, whatapp etc)
-- multi-tenant (add org level)
 
 

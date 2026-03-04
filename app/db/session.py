@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import AsyncGenerator
 
 from sqlalchemy import text
@@ -17,8 +18,6 @@ async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
     async with async_session_factory() as session:
         user_id = getattr(request.state, "current_user_id", None)
         if user_id:
-            await session.execute(
-                text("SET LOCAL app.current_user_id = :uid"),
-                {"uid": str(user_id)},
-            )
+            safe_uid = str(uuid.UUID(str(user_id)))
+            await session.execute(text(f"SET LOCAL app.current_user_id = '{safe_uid}'"))
         yield session

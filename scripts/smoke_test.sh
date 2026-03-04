@@ -45,19 +45,11 @@ assert_status "GET /health" 200 "$STATUS"
 
 # ----------------------------------------------------------
 echo ""
-echo "2. Register admin (first user becomes admin)"
+echo "2. Login as seeded admin"
 
-RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/auth/register" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@alma.com","password":"admin123"}')
-STATUS=$(echo "$RESP" | tail -1)
-BODY=$(echo "$RESP" | sed '$d')
-assert_status "Register admin@alma.com" 201 "$STATUS"
-
-# Login as admin
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$API/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@alma.com","password":"admin123"}')
+  -d '{"email":"admin@alma.com","password":"change-me-in-production"}')
 STATUS=$(echo "$RESP" | tail -1)
 BODY=$(echo "$RESP" | sed '$d')
 assert_status "Login as admin" 200 "$STATUS"
