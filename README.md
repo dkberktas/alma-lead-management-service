@@ -26,7 +26,8 @@ curl http://localhost:8000/health
 ```
 
 The API is now available at **http://localhost:8000**.
-Interactive docs (Swagger UI) at **http://localhost:8000/docs**.
+
+> **Explore the API:** Open [Swagger UI](http://localhost:8000/docs) for interactive docs, import the [Postman collection](postman/Alma_Lead_Management.postman_collection.json) for pre-built requests, or run the [Admin UI](#admin-frontend) (`cd frontend/admin && npm run dev`) to manage leads from a browser.
 
 ### Stopping
 
