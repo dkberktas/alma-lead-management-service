@@ -271,6 +271,8 @@ All settings are loaded from environment variables (see `.env.example`):
 | `S3_PREFIX` | `resumes` | S3 key prefix for uploaded files |
 | `S3_REGION` | *(empty)* | AWS region (e.g., `us-east-1`) |
 | `S3_ENDPOINT_URL` | *(empty)* | Custom S3 endpoint (for MinIO / LocalStack) |
+| `AWS_ACCESS_KEY_ID` | *(boto3 chain)* | AWS access key — see [File Storage](#file-storage) |
+| `AWS_SECRET_ACCESS_KEY` | *(boto3 chain)* | AWS secret key — see [File Storage](#file-storage) |
 | `ADMIN_EMAIL` | *(empty)* | Seed admin email (see [Admin Bootstrap](#admin-bootstrap)) |
 | `ADMIN_PASSWORD` | *(empty)* | Seed admin password |
 
@@ -360,14 +362,29 @@ The system picks the first available provider: **Resend > SMTP > log-only fallba
 
 ## File Storage
 
-Resume uploads are stored in S3. Set `S3_BUCKET` and provide AWS credentials via the standard boto3 chain (env vars `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, IAM roles, or `~/.aws/credentials`).
+Resume uploads are stored in S3. The app does **not** manage AWS credentials directly — it delegates to [boto3's standard credential chain](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html), which resolves credentials in this order:
+
+1. **Environment variables** — `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (and optionally `AWS_SESSION_TOKEN`)
+2. **Shared credentials file** — `~/.aws/credentials` (set up via `aws configure`)
+3. **IAM role** — attached to the EC2 instance, ECS task, or Lambda function
+
+Configure the S3 bucket and region in `.env`:
 
 ```bash
 S3_BUCKET=my-alma-resumes
 S3_REGION=us-east-1
 ```
 
-To use an S3-compatible service (e.g., MinIO), set `S3_ENDPOINT_URL`:
+**Local development** — set credentials as env vars or run `aws configure`:
+
+```bash
+AWS_ACCESS_KEY_ID=AKIAxxxxxxxxxxxxxxxx
+AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**Production** — use an IAM role instead of static keys. Attach a role with `s3:PutObject`, `s3:GetObject`, and `s3:ListBucket` permissions on the target bucket. No credential env vars are needed.
+
+To use an S3-compatible service (e.g., MinIO, LocalStack), set `S3_ENDPOINT_URL`:
 
 ```bash
 S3_ENDPOINT_URL=http://localhost:9000
